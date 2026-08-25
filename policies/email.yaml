@@ -1,0 +1,14 @@
+# Argument-aware egress policy (issue #8 / T2.5, criterion #3).
+#
+# Allow send_email only to the approved corporate domain. The arg_matches predicate uses an
+# anchored full-match, so a look-alike trailing domain (attacker@example.com.evil.com) does
+# NOT match and falls through to the fail-closed default DENY.
+
+rules:
+  - rule_id: email.approved_domain.allow
+    tool: send_email
+    trigger: action
+    enforce: allow
+    checks:
+      - predicate: arg_matches
+        params: { arg: to, pattern: '[^@\s]+@example\.com' }
