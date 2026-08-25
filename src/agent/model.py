@@ -28,8 +28,7 @@ class ModelResponse:
 class ModelClient(Protocol):
     """Turns task context + prior results into the next proposal or a final answer."""
 
-    def next_step(self, task: str, history: Sequence[ToolResult]) -> ModelResponse:
-        ...
+    def next_step(self, task: str, history: Sequence[ToolResult]) -> ModelResponse: ...
 
 
 class OllamaModel:

@@ -44,6 +44,7 @@ def resolve(name: str) -> Predicate:
 
 # --- Predicate signatures (bodies deferred to Phase 2) -----------------------------------
 
+
 @register("arg_equals")
 def arg_equals(call: ToolCall, params: Mapping[str, Any]) -> bool:
     """True iff the named argument equals an expected value."""

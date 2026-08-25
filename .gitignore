@@ -9,3 +9,11 @@
 __pycache__/
 .pytest_cache/
 *.py[cod]
+
+# Tooling / build artifacts
+.venv/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+results/

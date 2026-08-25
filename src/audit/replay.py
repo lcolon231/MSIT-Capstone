@@ -21,9 +21,7 @@ def replay(path: Path) -> Iterator[AuditEvent]:
     raise NotImplementedError
 
 
-def reconstruct_sequence_state(
-    path: Path, now: float, lookback_s: float
-) -> SequenceState:
+def reconstruct_sequence_state(path: Path, now: float, lookback_s: float) -> SequenceState:
     """Rebuild sequence state from ChainProgress/eviction/lifecycle events within
     `[now - lookback_s, now]`. Returns an immutable SequenceState the session registry can seed
     a cold session from (D12.4, docs/design/sequence-engine.md §3)."""
