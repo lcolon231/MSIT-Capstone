@@ -1,0 +1,20 @@
+# Argument-aware shell policy (issue #8 / T2.5, criterion #3).
+#
+# First-match ordering: destructive commands are denied BEFORE the general allow, so
+# shell("ls") is ALLOWed while shell("rm -rf /") — and its encoded variants — are DENYed.
+# The is_destructive_cmd predicate canonicalizes ${IFS}, quote/backslash splitting, case,
+# unicode homoglyphs, and base64-pipe-to-shell before matching.
+
+rules:
+  - rule_id: shell.destructive.deny
+    tool: shell
+    trigger: action
+    enforce: deny
+    checks:
+      - predicate: is_destructive_cmd
+        params: { arg: command }
+
+  - rule_id: shell.allow
+    tool: shell
+    trigger: action
+    enforce: allow
