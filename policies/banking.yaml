@@ -29,3 +29,10 @@ rules:
     tool: transfer_funds
     trigger: action
     enforce: gate
+
+  # Destroying the transaction/audit trail is never a legitimate agent action (anti-forensics):
+  # deny outright rather than gate, since no operator approval should make it possible.
+  - rule_id: banking.delete_transaction_history.deny
+    tool: delete_transaction_history
+    trigger: action
+    enforce: deny
