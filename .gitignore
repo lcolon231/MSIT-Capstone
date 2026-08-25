@@ -2,3 +2,9 @@
 /papers/
 /Assginments/
 /report/
+
+/MIST-Capstone/
+
+__pycache__/
+.pytest_cache/
+*.py[cod]
