@@ -13,7 +13,6 @@ Fail-closed order (spec.md §9):
 
 from __future__ import annotations
 
-from src.monitor import sequence
 from src.monitor.types import Decision, SequenceState, ToolCall
 from src.policy.schema import Policy
 from src.transport.contract import Verdict

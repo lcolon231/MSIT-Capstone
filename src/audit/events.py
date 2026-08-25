@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Mapping
 
 from src.monitor.types import GateClass, Principal, SessionId
 from src.transport.contract import Verdict
@@ -77,9 +76,7 @@ class SessionLifecycleEvent:
     timestamp: float
 
 
-AuditEvent = (
-    DecisionEvent | ChainProgressEvent | EvictionEvent | SessionLifecycleEvent
-)
+AuditEvent = DecisionEvent | ChainProgressEvent | EvictionEvent | SessionLifecycleEvent
 
 
 def to_jsonl(event: AuditEvent) -> str:

@@ -95,9 +95,7 @@ def test_agent_has_no_path_to_tools_policy_or_monitor() -> None:
     assert agent_modules, "no src.agent modules found — check the layout"
 
     reachable = _closure(agent_modules, graph)
-    violations = sorted(
-        m for m in reachable if m.startswith(FORBIDDEN_PREFIXES)
-    )
+    violations = sorted(m for m in reachable if m.startswith(FORBIDDEN_PREFIXES))
     assert not violations, (
         "src/agent gained an import path to forbidden packages: "
         f"{violations}. The agent must reach tools/policy/monitor only across the transport "
