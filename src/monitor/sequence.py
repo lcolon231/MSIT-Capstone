@@ -24,7 +24,10 @@ def classify(call: ToolCall, state: SequenceState, policy: Policy) -> Decision |
     GATE  = near-miss escalation (recon+add present, transfer target/amount ambiguous).
     Pure; no I/O, no mutation (docs/design/sequence-engine.md §8).
     """
-    raise NotImplementedError
+    if not policy.sequence.chains:
+        # No modeled chains => nothing to classify; per-call policy decides.
+        return None
+    raise NotImplementedError  # blocking-transition matching: Phase 3 (#10-#12)
 
 
 def advance(call: ToolCall, state: SequenceState) -> SequenceState:

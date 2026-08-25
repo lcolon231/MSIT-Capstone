@@ -13,6 +13,7 @@ Fail-closed order (spec.md §9):
 
 from __future__ import annotations
 
+from src.monitor import sequence
 from src.monitor.types import Decision, SequenceState, ToolCall
 from src.policy.schema import Policy
 from src.transport.contract import Verdict
@@ -25,7 +26,16 @@ def evaluate(call: ToolCall, policy: Policy, state: SequenceState) -> Decision:
     composition can turn a would-be per-call GATE into a DENY. If nothing matches, the default
     is DENY — never allow (docs/design/sequence-engine.md §2).
     """
-    raise NotImplementedError
+    # 1. Sequence engine first: a modeled chain at a blocking transition wins outright.
+    chain_decision = sequence.classify(call, state, policy)
+    if chain_decision is not None:
+        return chain_decision
+    # 2. Per-call, argument-aware policy.
+    rule = policy.match(call)
+    if rule is not None:
+        return rule.decide(call)
+    # 3. Fail-closed default.
+    return default_deny()
 
 
 def default_deny() -> Decision:

@@ -86,4 +86,4 @@ class SequenceState:
 
     def for_subject(self, key: SubjectKey) -> tuple[ChainProgress, ...]:
         """Return the chain-progress tuple for a subject (empty if none). Pure accessor."""
-        raise NotImplementedError
+        return tuple(self.progress.get(key, ()))

@@ -96,10 +96,13 @@ class Policy:
 
     def match(self, call: ToolCall) -> Rule | None:
         """First per-call rule that matches `call`, or None. Pure (docs/.../architecture.md §3.5)."""
-        raise NotImplementedError
+        for rule in self.rules:
+            if rule.matches(call):
+                return rule
+        return None
 
     @staticmethod
     def deny_all() -> "Policy":
         """The fail-closed policy returned when loading fails: matches nothing, so every call
         hits the default DENY (docs/design/architecture.md §3.10). Never an empty allow."""
-        raise NotImplementedError
+        return Policy(rules=(), sequence=SequenceConfig())
