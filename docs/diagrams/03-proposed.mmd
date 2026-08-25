@@ -1,0 +1,58 @@
+---
+title: "Figure 3 — Proposed Solution Architecture: Containment Monitor"
+---
+flowchart LR
+    TICKET["<b>Untrusted input</b><br/>ticket body · email<br/>log excerpt · filename<br/><i>injection vector</i>"]
+
+    LLM["<b>LLM Agent</b><br/>Llama 3.1 8B via Ollama<br/><i>non-deterministic —<br/>not trusted for<br/>security decisions</i>"]
+
+    subgraph MONITOR["Containment Monitor — trusted enforcement layer"]
+        direction TB
+        INT["<b>1. Interception</b><br/><i>complete mediation</i>"]
+        SEQ["<b>2. Sequence Engine</b><br/>kill-chain state machine"]
+        PC["<b>3. Per-call Policy</b><br/><i>argument-aware<br/>fail-closed default</i>"]
+        GATE["<b>4. Approval Gate</b><br/><i>4 irreversible classes</i>"]
+        INT --> SEQ --> PC --> GATE
+    end
+
+    DEC{"Verdict"}
+    TOOLS["<b>Tool layer</b><br/>RMM actions · file ops<br/>network send · credentials"]
+    BLOCK["<b>Blocked</b><br/><i>never reaches tool</i>"]
+    OPS["<b>Operator Console</b><br/>login · decision feed<br/>approval queue"]
+
+    POL[("<b>policy.yaml</b><br/><i>declarative<br/>versioned</i>")]
+    LOG[("<b>Audit Log</b><br/><i>append-only JSONL</i>")]
+
+    TICKET --> LLM
+    LLM -->|"proposed<br/>tool call"| INT
+    SEQ -.->|"chain complete"| DEC
+    GATE --> DEC
+
+    POL -.-> SEQ
+    POL -.-> PC
+
+    DEC -->|"ALLOW"| TOOLS
+    DEC -->|"DENY"| BLOCK
+    DEC -->|"GATE"| OPS
+    OPS -->|"approve"| TOOLS
+    OPS -->|"deny / timeout"| BLOCK
+
+    DEC ==>|"every decision + rule_id"| LOG
+    LOG -.-> OPS
+    TOOLS -->|"result"| LLM
+
+    classDef untrusted fill:#fff3cd,stroke:#b58105,color:#6b4c00
+    classDef agent fill:#f8d7da,stroke:#a94442,color:#7a2a2f,stroke-width:2px
+    classDef mon fill:#dce6f1,stroke:#2e5c8a,color:#1f3864
+    classDef decision fill:#2e5c8a,stroke:#1f3864,color:#ffffff,stroke-width:2px
+    classDef tool fill:#e8f0e3,stroke:#4a7c3f,color:#254a1d
+    classDef store fill:#ede7f6,stroke:#5e35b1,color:#311b92
+    classDef blocked fill:#eeeeee,stroke:#777777,color:#333333
+
+    class TICKET untrusted
+    class LLM agent
+    class INT,SEQ,PC,GATE,OPS mon
+    class DEC decision
+    class POL,LOG store
+    class TOOLS tool
+    class BLOCK blocked

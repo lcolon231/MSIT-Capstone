@@ -1,0 +1,71 @@
+---
+title: "Figure 5 — Data Flow for a Single Tool Call (with audit-log write)"
+---
+flowchart TB
+    AGENT["<b>Agent</b><br/>LLM proposes a call<br/><i>valid or malformed JSON envelope</i>"]
+
+    subgraph BOUNDARY["Transport boundary — loopback (D11 primary) or in-process (scope cut)"]
+        BOOT["<b>Trusted launcher</b><br/><i>create and bind monitor-issued session (D14)</i>"]
+        TX["<b>Session-bound Transport.dispatch(envelope)</b><br/><i>capability private; no session argument</i>"]
+    end
+
+    subgraph MON["Containment Monitor — trusted process (owns tools, policy, state)"]
+        direction TB
+        SESSION["<b>SessionRegistry</b><br/><i>mint / validate opaque handle</i>"]
+        ENRICH["<b>Normalize + enrich</b><br/>validate session, shape, tool<br/>resolve resource_principal<br/><i>invalid still becomes ToolCall</i>"]
+        VALID{"<b>CallValidation</b><br/>VALID?"}
+        SEQ{"<b>Sequence engine</b><br/>classify(call, state)"}
+        PC{"<b>Per-call policy</b><br/>argument-aware match"}
+        DEF["<b>Default</b><br/><i>DENY (fail-closed)</i>"]
+        GATE["<b>Approval gate</b><br/>4 classes · queue<br/><i>no approval → DENY</i>"]
+        EXEC["<b>Tool registry</b><br/>execute mock tool<br/><i>only path to a tool</i>"]
+        ADV["<b>advance(call, policy, state)</b><br/><i>successful tool outcome only</i>"]
+    end
+
+    OPS["<b>Operator console</b><br/>approve / deny"]
+    LOG[("<b>Audit Log</b><br/>append-only JSONL<br/><i>args + named bindings hashed</i><br/>Decision · Gate resolution · Chain progress")]
+    RESULT["<b>ToolResult</b><br/><i>executed | tool_failed | denied</i>"]
+
+    BOOT -->|"launcher-only bootstrap"| SESSION
+    SESSION -->|"opaque capability"| BOOT
+    SESSION ==>|"SessionLifecycleEvent"| LOG
+    BOOT --> TX
+    AGENT -->|"propose"| TX --> ENRICH --> VALID
+    VALID -->|"invalid -> system DENY"| DECISION
+    VALID -->|"valid"| SEQ
+    SEQ -->|"DENY / GATE (chain)"| DECISION{{"Decision<br/>verdict + rule_id + reason"}}
+    SEQ -->|"None"| PC
+    PC -->|"ALLOW / DENY / GATE"| DECISION
+    PC -->|"no match"| DEF --> DECISION
+
+    DECISION ==>|"every decision + rule_id"| LOG
+
+    DECISION -->|"GATE"| GATE
+    GATE -->|"pending"| OPS
+    OPS -->|"approve / deny"| GATE
+    GATE ==>|"ApprovalResolutionEvent"| LOG
+    GATE -->|"approved"| EXEC
+    GATE -->|"denied / timeout"| RESULT
+    DECISION -->|"ALLOW"| EXEC
+    DECISION -->|"DENY"| RESULT
+
+    EXEC -->|"success"| ADV
+    EXEC -->|"tool failure; no advance"| RESULT
+    EXEC ==>|"ToolExecutionEvent; result hashed"| LOG
+    ADV ==>|"ChainProgressEvent"| LOG
+    EXEC --> RESULT
+    RESULT -->|"untrusted result; next proposal is mediated"| AGENT
+
+    classDef agent fill:#f8d7da,stroke:#a94442,color:#7a2a2f,stroke-width:2px
+    classDef bound fill:#fff3cd,stroke:#b58105,color:#6b4c00
+    classDef mon fill:#dce6f1,stroke:#2e5c8a,color:#1f3864
+    classDef decision fill:#2e5c8a,stroke:#1f3864,color:#ffffff,stroke-width:2px
+    classDef store fill:#ede7f6,stroke:#5e35b1,color:#311b92
+    classDef ops fill:#e8f0e3,stroke:#4a7c3f,color:#254a1d
+
+    class AGENT agent
+    class BOOT,TX bound
+    class SESSION,ENRICH,VALID,SEQ,PC,DEF,GATE,EXEC,ADV mon
+    class DECISION decision
+    class LOG store
+    class OPS,RESULT ops

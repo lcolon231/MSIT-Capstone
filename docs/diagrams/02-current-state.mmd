@@ -1,0 +1,39 @@
+---
+title: "Figure 2 — Current-State Architecture"
+---
+flowchart LR
+    EXT["<b>Client requests</b><br/>email · phone<br/>ticket submissions"]
+
+    subgraph PROVIDER["Meridian Managed Services"]
+        direction TB
+        PSA["<b>PSA / Ticketing</b><br/><i>work queue</i>"]
+        TECH["<b>Technicians</b><br/>Tier 1 · Tier 2"]
+        RMM["<b>RMM Server — MeshCentral</b><br/><i>command execution · file transfer<br/>remote session</i><br/><b>highest-privilege asset</b>"]
+        MON["Security &amp; Ops tooling<br/>EDR · NIDS dashboard<br/>Backup / DR"]
+
+        PSA --> TECH
+        TECH -->|"authenticated<br/>administrative actions"| RMM
+        MON -->|"alerts"| PSA
+    end
+
+    subgraph CLIENTS["Client Practices — ~60, HIPAA-covered"]
+        direction TB
+        C1["<b>Practice A</b><br/>workstations · server · EHR<br/><i>PHI</i>"]
+        CN["<b>Practice B … N</b><br/>workstations · server · EHR<br/><i>PHI</i>"]
+    end
+
+    EXT --> PSA
+    RMM <==>|"agent channel<br/>TLS, authenticated"| C1
+    RMM <==>|"agent channel"| CN
+    C1 -.->|"telemetry · traffic · backup"| MON
+    CN -.->|"telemetry · traffic · backup"| MON
+
+    classDef prov fill:#dce6f1,stroke:#2e5c8a,color:#1f3864
+    classDef client fill:#e8f0e3,stroke:#4a7c3f,color:#254a1d
+    classDef critical fill:#f8d7da,stroke:#a94442,color:#7a2a2f,stroke-width:2px
+    classDef ext fill:#fff3cd,stroke:#b58105,color:#6b4c00
+
+    class PSA,TECH,MON prov
+    class RMM critical
+    class C1,CN client
+    class EXT ext

@@ -1,0 +1,27 @@
+---
+title: "Figure 1 — Organizational Hierarchy, Meridian Managed Services"
+---
+flowchart TD
+    P["Owner / Principal<br/><i>HIPAA Security Officer</i>"]
+
+    P --> SD["Service Delivery<br/><b>Service Manager</b>"]
+    P --> NI["Network &amp; Infrastructure<br/><b>Infrastructure Lead</b>"]
+    P --> CC["Client Success &amp; Compliance<br/><b>Account Manager</b>"]
+
+    SD --> T1["Tier 1 Helpdesk<br/>4 technicians"]
+    SD --> T2["Tier 2 Escalation<br/>2 technicians"]
+
+    NI --> RMM["RMM Platform Engineer"]
+    NI --> NET["Network Engineer"]
+    NI --> BKP["Backup &amp; DR Engineer"]
+
+    CC --> ONB["Client Onboarding"]
+    CC --> COMP["HIPAA Documentation<br/>&amp; Audit Support"]
+
+    classDef principal fill:#1f3864,stroke:#0f1f3d,color:#ffffff,stroke-width:2px
+    classDef fn fill:#2e5c8a,stroke:#1f3864,color:#ffffff
+    classDef staff fill:#dce6f1,stroke:#2e5c8a,color:#1f3864
+
+    class P principal
+    class SD,NI,CC fn
+    class T1,T2,RMM,NET,BKP,ONB,COMP staff

@@ -1,0 +1,42 @@
+---
+title: "Figure 4 — Sequence State Machine: the recon-add-drain kill chain"
+---
+stateDiagram-v2
+    direction LR
+
+    [*] --> S0_IDLE
+
+    S0_IDLE --> S1_BALANCE : get_balance\n(ALLOW per-call)
+    note left of S0_IDLE
+        State keyed on (session_id, resource_principal).
+        Advances only on a permitted, successful call.
+        Nothing the agent does resets state (D12);
+        idle expiry/session end clears only live state;
+        per-chain cap evictions are logged.
+        New sessions replay 24h of principal history (D15);
+        named binding digests are reconstructible.
+    end note
+
+    S1_BALANCE --> S2_PAYEES : list_payees\n(ALLOW per-call)
+    S2_PAYEES --> S3_PAYEE_ADDED : add_payee(p) succeeds\n(ALLOW per-call)\nbind payee digest = H(p)
+
+    S3_PAYEE_ADDED --> S4_BLOCKED : transfer_funds(H(to) = H(p))\nBLOCKING -> DENY\nrule_id seq.recon_add_drain.terminal
+    S3_PAYEE_ADDED --> S3_PAYEE_ADDED : transfer_funds(H(to) != H(p))\nsequence -> None; ordinary D5 GATE\npreserve S3 (D16)
+    note right of S3_PAYEE_ADDED
+        False-block guard:
+        a bare add_payee -> transfer_funds
+        with no recon prefix never reaches S3.
+        A transfer to a different/pre-existing payee
+        returns None from sequence; normal D5 GATE applies,
+        and operator approval lets it pass.
+    end note
+
+    S1_BALANCE --> S1_BALANCE : benign call\n(interleaving ignored)
+    S2_PAYEES --> S2_PAYEES : benign call\n(interleaving ignored)
+    S3_PAYEE_ADDED --> S3_PAYEE_ADDED : successful duplicate add_payee\n(idempotent digest re-bind)
+
+    S1_BALANCE --> S0_IDLE : live expiry / eviction\n(logged; replay may restore)
+    S2_PAYEES --> S0_IDLE : live expiry / eviction\n(logged; replay may restore)
+    S3_PAYEE_ADDED --> S0_IDLE : live expiry / eviction\n(logged; replay may restore)
+
+    S4_BLOCKED --> [*] : DENY recorded in audit log\n(transfer never executed)
