@@ -7,6 +7,8 @@ never be silent. Every record carries the fields needed to rebuild the automaton
 
 from __future__ import annotations
 
+import dataclasses
+import json
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -79,11 +81,72 @@ class SessionLifecycleEvent:
 AuditEvent = DecisionEvent | ChainProgressEvent | EvictionEvent | SessionLifecycleEvent
 
 
+class AuditFormatError(ValueError):
+    """A log line is not a valid, complete audit record. Corrupt records fail closed and are
+    never silently skipped (interface-contracts.md §4.7)."""
+
+
+def _encode(value: object) -> object:
+    return value.value if isinstance(value, Enum) else value
+
+
 def to_jsonl(event: AuditEvent) -> str:
     """Serialize an event to a single JSONL line. Pure."""
-    raise NotImplementedError
+    payload = {f.name: _encode(getattr(event, f.name)) for f in dataclasses.fields(event)}
+    return json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
 
 
 def from_jsonl(line: str) -> AuditEvent:
     """Parse one JSONL line back into an event (untrusted input — validate shape)."""
-    raise NotImplementedError
+    try:
+        raw = json.loads(line)
+    except json.JSONDecodeError as exc:
+        raise AuditFormatError(f"not valid JSON: {exc}") from exc
+    if not isinstance(raw, dict) or "type" not in raw:
+        raise AuditFormatError("audit record missing 'type'")
+    event_type = raw["type"]
+    try:
+        if event_type == EventType.DECISION.value:
+            gate = raw["gate_class"]
+            return DecisionEvent(
+                call_id=raw["call_id"],
+                session_id=SessionId(raw["session_id"]),
+                principal=Principal(raw["principal"]),
+                tool=raw["tool"],
+                arg_sha256=raw["arg_sha256"],
+                verdict=Verdict(raw["verdict"]),
+                rule_id=raw["rule_id"],
+                reason=raw["reason"],
+                gate_class=GateClass(gate) if gate is not None else None,
+                timestamp=raw["timestamp"],
+            )
+        if event_type == EventType.CHAIN_PROGRESS.value:
+            return ChainProgressEvent(
+                session_id=SessionId(raw["session_id"]),
+                principal=Principal(raw["principal"]),
+                chain=raw["chain"],
+                from_node=raw["from_node"],
+                to_node=raw["to_node"],
+                bindings_sha256=raw["bindings_sha256"],
+                timestamp=raw["timestamp"],
+            )
+        if event_type == EventType.EVICTION.value:
+            return EvictionEvent(
+                session_id=SessionId(raw["session_id"]),
+                principal=Principal(raw["principal"]),
+                chain=raw["chain"],
+                evicted_node=raw["evicted_node"],
+                reason=raw["reason"],
+                timestamp=raw["timestamp"],
+            )
+        if event_type == EventType.SESSION_LIFECYCLE.value:
+            principal = raw["principal"]
+            return SessionLifecycleEvent(
+                session_id=SessionId(raw["session_id"]),
+                principal=Principal(principal) if principal is not None else None,
+                action=raw["action"],
+                timestamp=raw["timestamp"],
+            )
+    except (KeyError, ValueError, TypeError) as exc:
+        raise AuditFormatError(f"malformed {event_type} record: {exc}") from exc
+    raise AuditFormatError(f"unknown event type {event_type!r}")

@@ -12,13 +12,21 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterator
 
-from src.audit.events import AuditEvent
+from src.audit.events import AuditEvent, from_jsonl
 from src.monitor.types import SequenceState
 
 
 def replay(path: Path) -> Iterator[AuditEvent]:
-    """Yield every event in the log, in append order. Reconstructs every decision of a run."""
-    raise NotImplementedError
+    """Yield every event in the log, in append order. Reconstructs every decision of a run.
+
+    A corrupt line raises `AuditFormatError` rather than being silently skipped (fail-closed;
+    interface-contracts.md §4.7).
+    """
+    with Path(path).open("r", encoding="utf-8") as handle:
+        for line in handle:
+            stripped = line.strip()
+            if stripped:
+                yield from_jsonl(stripped)
 
 
 def reconstruct_sequence_state(path: Path, now: float, lookback_s: float) -> SequenceState:
