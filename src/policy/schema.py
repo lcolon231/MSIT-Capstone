@@ -17,6 +17,7 @@ from enum import Enum
 from typing import Any, Mapping, Sequence
 
 from src.monitor.types import Decision, ToolCall
+from src.policy import predicates
 from src.transport.contract import Verdict
 
 
@@ -48,12 +49,28 @@ class Rule:
     enforce: Verdict  # ALLOW / DENY / GATE
 
     def matches(self, call: ToolCall) -> bool:
-        """True iff this rule's tool + checks apply to `call`. Pure."""
-        raise NotImplementedError
+        """True iff this rule's tool + checks apply to `call`. Pure and fail-closed."""
+        if call.tool != self.tool:
+            return False
+        return all(_check_holds(check, call) for check in self.checks)
 
     def decide(self, call: ToolCall) -> Decision:
         """Return this rule's Decision for a matching call. Pure."""
-        raise NotImplementedError
+        return Decision(
+            verdict=self.enforce,
+            rule_id=self.rule_id,
+            reason=f"matched rule '{self.rule_id}'",
+        )
+
+
+def _check_holds(check: Check, call: ToolCall) -> bool:
+    """Evaluate one check, FAIL-CLOSED: an unregistered or erroring predicate never matches
+    (interface-contracts.md §4.5 — exceptions or ambiguity count as a failed match)."""
+    try:
+        result = predicates.resolve(check.predicate)(call, check.params)
+    except Exception:
+        return False
+    return bool(result) != check.negate
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,31 @@
+# Per-call containment policy for the mock banking domain (issue #6 / T2.3, D2).
+#
+# Declarative data only — no Python-callable policy. Each rule fires on a proposed tool call
+# (`trigger: action`); with no matching rule the monitor fails closed to DENY.
+#
+# These are tool-level defaults. Argument-aware `checks` (anchored matchers over call args)
+# are added in #8 once the predicate bodies exist; the composition into a blocked kill chain
+# (get_balance -> list_payees -> add_payee -> transfer_funds) is added with the sequence
+# engine in Phase 3.
+
+rules:
+  - rule_id: banking.get_balance.allow
+    tool: get_balance
+    trigger: action
+    enforce: allow
+
+  - rule_id: banking.list_payees.allow
+    tool: list_payees
+    trigger: action
+    enforce: allow
+
+  - rule_id: banking.add_payee.allow
+    tool: add_payee
+    trigger: action
+    enforce: allow
+
+  # Fund transfer is an irreversible, high-blast-radius action: route to a human (D5).
+  - rule_id: banking.transfer_funds.gate
+    tool: transfer_funds
+    trigger: action
+    enforce: gate
