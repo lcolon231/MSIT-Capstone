@@ -17,6 +17,8 @@ import yaml
 
 from src.policy import predicates
 from src.policy.schema import (
+    ChainSpec,
+    ChainStep,
     Check,
     Policy,
     Rule,
@@ -31,6 +33,13 @@ _TOP_FIELDS = frozenset({"rules", "sequence"})
 _RULE_FIELDS = frozenset({"rule_id", "tool", "trigger", "checks", "enforce"})
 _RULE_REQUIRED = ("rule_id", "tool", "trigger", "enforce")
 _CHECK_FIELDS = frozenset({"predicate", "params", "negate"})
+_SEQUENCE_FIELDS = frozenset({"chains"})
+_CHAIN_FIELDS = frozenset({"name", "domain", "steps"})
+_CHAIN_REQUIRED = ("name", "domain", "steps")
+# Design-doc key style (sequence-engine.md §9): short `from`/`to` node keys mapped to the
+# ChainStep dataclass's from_node/to_node.
+_STEP_FIELDS = frozenset({"trigger", "from", "to", "checks", "bind", "enforce", "rule_id"})
+_STEP_REQUIRED = ("trigger", "to")
 
 
 class PolicyError(ValueError):
@@ -75,7 +84,9 @@ def _parse_rule(raw: object, index: int) -> Rule:
             raise PolicyError(f"{where} missing required field '{field_name}'")
     trigger = _parse_enum(TriggerEvent, raw["trigger"], f"{where}.trigger")
     enforce = _parse_enum(Verdict, raw["enforce"], f"{where}.enforce")
-    checks = tuple(_parse_check(item, index, j) for j, item in enumerate(raw.get("checks") or ()))
+    checks = tuple(
+        _parse_check(item, f"{where}.checks[{j}]") for j, item in enumerate(raw.get("checks") or ())
+    )
     return Rule(
         rule_id=str(raw["rule_id"]),
         tool=str(raw["tool"]),
@@ -85,8 +96,7 @@ def _parse_rule(raw: object, index: int) -> Rule:
     )
 
 
-def _parse_check(raw: object, rule_index: int, check_index: int) -> Check:
-    where = f"rule[{rule_index}].checks[{check_index}]"
+def _parse_check(raw: object, where: str) -> Check:
     if not isinstance(raw, dict):
         raise PolicyError(f"{where} must be a mapping, got {type(raw).__name__}")
     _reject_unknown(raw, _CHECK_FIELDS, where)
@@ -102,11 +112,58 @@ def _parse_check(raw: object, rule_index: int, check_index: int) -> Check:
 
 
 def _parse_sequence(raw: object) -> SequenceConfig:
+    """Parse the `sequence:` block into modeled kill chains (D1). Fail-closed: unknown fields,
+    missing required step keys, or an unregistered check predicate all raise `PolicyError`."""
     if raw is None:
         return SequenceConfig()
-    # Chain (kill-chain) policy parsing lands with the sequence engine in Phase 3 (#10-#12);
-    # until then a `sequence:` block is rejected rather than silently dropped (fail-closed).
-    raise PolicyError("sequence/chain policies are not supported yet (Phase 3)")
+    if not isinstance(raw, dict):
+        raise PolicyError(f"sequence must be a mapping, got {type(raw).__name__}")
+    _reject_unknown(raw, _SEQUENCE_FIELDS, "sequence")
+    chains = tuple(_parse_chain(item, i) for i, item in enumerate(raw.get("chains") or ()))
+    return SequenceConfig(chains=chains)
+
+
+def _parse_chain(raw: object, index: int) -> ChainSpec:
+    where = f"sequence.chains[{index}]"
+    if not isinstance(raw, dict):
+        raise PolicyError(f"{where} must be a mapping, got {type(raw).__name__}")
+    _reject_unknown(raw, _CHAIN_FIELDS, where)
+    for field_name in _CHAIN_REQUIRED:
+        if field_name not in raw:
+            raise PolicyError(f"{where} missing required field '{field_name}'")
+    steps = tuple(
+        _parse_step(item, where, j) for j, item in enumerate(raw.get("steps") or ())
+    )
+    if not steps:
+        raise PolicyError(f"{where} must declare at least one step")
+    return ChainSpec(name=str(raw["name"]), domain=str(raw["domain"]), steps=steps)
+
+
+def _parse_step(raw: object, chain_where: str, index: int) -> ChainStep:
+    where = f"{chain_where}.steps[{index}]"
+    if not isinstance(raw, dict):
+        raise PolicyError(f"{where} must be a mapping, got {type(raw).__name__}")
+    _reject_unknown(raw, _STEP_FIELDS, where)
+    for field_name in _STEP_REQUIRED:
+        if field_name not in raw:
+            raise PolicyError(f"{where} missing required field '{field_name}'")
+    checks = tuple(
+        _parse_check(item, f"{where}.checks[{k}]") for k, item in enumerate(raw.get("checks") or ())
+    )
+    enforce = _parse_enum(Verdict, raw["enforce"], f"{where}.enforce") if "enforce" in raw else None
+    bind_raw = raw.get("bind") or {}
+    if not isinstance(bind_raw, dict):
+        raise PolicyError(f"{where}.bind must be a mapping, got {type(bind_raw).__name__}")
+    from_raw = raw.get("from")
+    return ChainStep(
+        trigger=str(raw["trigger"]),
+        to_node=str(raw["to"]),
+        from_node=None if from_raw is None else str(from_raw),
+        checks=checks,
+        bind={str(k): str(v) for k, v in bind_raw.items()},
+        enforce=enforce,
+        rule_id=None if "rule_id" not in raw else str(raw["rule_id"]),
+    )
 
 
 def _parse_enum(enum_cls: type[_E], value: object, where: str) -> _E:
