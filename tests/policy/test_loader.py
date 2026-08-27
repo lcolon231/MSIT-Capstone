@@ -85,9 +85,10 @@ def test_validate_rejects_unregistered_predicate() -> None:
         validate_policy(bad)
 
 
-def test_validate_rejects_sequence_block_until_phase3() -> None:
-    with pytest.raises(PolicyError):
-        validate_policy({"rules": [], "sequence": {"chains": []}})
+def test_validate_accepts_empty_sequence_block() -> None:
+    # Sequence parsing landed in #12; an empty chains list is a valid, empty SequenceConfig.
+    policy = validate_policy({"rules": [], "sequence": {"chains": []}})
+    assert policy.sequence.chains == ()
 
 
 def test_load_missing_file_raises_policy_error() -> None:
