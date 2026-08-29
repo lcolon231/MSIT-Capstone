@@ -49,7 +49,7 @@ DOMAINS = [
 def build(tmp_path: Path, policy_file: str, timeout: float):
     registry = ToolRegistry()
     register_banking(registry, BankingState(balances={"acct-1": 1000}, payees={"acct-1": []}))
-    register_files(registry, FileStore(files={"acct-1": ["/etc/data"]}))
+    register_files(registry, FileStore(files={"acct-1": {"/etc/data": "secret"}}))
     register_network(registry, NetworkLog())
     register_credentials(registry, CredentialStore(secrets={"db": "s3cr3t"}))
     audit_path = tmp_path / "audit.jsonl"
@@ -97,3 +97,20 @@ def test_gate_class_executes_on_operator_approval(tmp_path, policy_file, proposa
     approver.join(timeout=2.0)
     assert result.status is ResultStatus.EXECUTED
     assert result.decision.verdict is Verdict.GATE  # gated, then operator-approved
+
+
+# Each expanded domain also has a benign, ALLOWed operation the agent can run without a gate.
+ALLOW_OPS = [
+    ("files.yaml", propose("list_files"), "files.list_files.allow"),
+    ("network.yaml", propose("fetch_url", url="http://mock/data"), "network.fetch_url.allow"),
+    ("credentials.yaml", propose("list_credentials"), "credentials.list_credentials.allow"),
+]
+
+
+@pytest.mark.parametrize("policy_file,proposal,rule_id", ALLOW_OPS)
+def test_benign_domain_op_executes(tmp_path, policy_file, proposal, rule_id) -> None:
+    service, session, _queue, _audit = build(tmp_path, policy_file, timeout=0.05)
+    result = service.handle(proposal, session)
+    assert result.status is ResultStatus.EXECUTED
+    assert result.decision.verdict is Verdict.ALLOW
+    assert result.decision.rule_id == rule_id
