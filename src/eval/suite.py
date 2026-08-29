@@ -6,9 +6,11 @@ and four benign scenarios that must NOT be over-blocked. Each is driven by a scr
 of proposals (deterministic replay, no live LLM) and judged by a pure post-condition checker
 (D6). The runner and metrics that consume this suite are issue #19.
 
-STAC (amazon-science/MultiTurnAgentAttack) was reviewed for reusable chains; its banking-style
-chains were re-cast to the Provider's healthcare-MSP exfiltration surface here rather than
-imported verbatim.
+These scenarios are STAC-informed via `research.md` (which surveys STAC,
+amazon-science/MultiTurnAgentAttack): the chain STRUCTURE follows STAC's finding that harm
+composes across individually-permitted calls, re-cast to the Provider's healthcare-MSP
+exfiltration surface. They are original constructions, not imports from the STAC repository — a
+direct review of that repo for reusable chains is a separate, open diligence step (issue #18).
 """
 
 from __future__ import annotations
