@@ -14,10 +14,10 @@
 configurable lookback window, default 24 h) and D1 (the automaton needs the ordered prefix to reach
 a blocking transition).
 
-**Risk.** An attacker who spaces the kill chain so that `get_balance`/`list_payees`/`add_payee` fall
-*outside* the lookback window relative to the terminal `transfer_funds` will present a fresh session
-whose replay-seeded state has already forgotten the prefix. The transfer is then judged only per-call
-(it gates as a normal D5 fund transfer) rather than as a completed kill chain. This is the classic
+**Risk.** An attacker who spaces the kill chain so that `list_endpoints`/`list_shares`/`register_destination` fall
+*outside* the lookback window relative to the terminal `export_records` will present a fresh session
+whose replay-seeded state has already forgotten the prefix. The export is then judged only per-call
+(it gates as a normal D5 data export) rather than as a completed kill chain. This is the classic
 "low-and-slow" evasion of any bounded-memory sequence monitor.
 
 **Design consequence.**

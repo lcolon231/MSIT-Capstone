@@ -1,6 +1,6 @@
 """Every D5 gate class routes to GATE end-to-end — issue #13 criterion 1.
 
-The four irreversible classes — fund-transfer, file-delete, network-send, credential-access —
+The four irreversible classes — data-export, file-delete, network-send, credential-access —
 each reach the approval gate through the full mediated flow: an un-resolved gate times out to
 DENIED (tool never runs) while the decision stays GATE and a class-tagged ApprovalResolutionEvent
 is written; an operator approval lets the tool execute.
@@ -22,11 +22,11 @@ from src.monitor.service import MonitorService
 from src.monitor.session import RetentionConfig, SessionRegistry
 from src.monitor.types import GateClass
 from src.policy.loader import load_policy
-from src.tools.banking import BankingState, register_banking
 from src.tools.base import ToolRegistry
 from src.tools.credentials import CredentialStore, register_credentials
 from src.tools.files import FileStore, register_files
 from src.tools.network import NetworkLog, register_network
+from src.tools.rmm import EndpointState, register_rmm
 from src.transport.contract import ResultStatus, ToolCallProposal, Verdict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -39,7 +39,7 @@ def propose(tool: str, **args: object) -> ToolCallProposal:
 
 # (policy file, proposal, expected gate class) — one GATE-class operation per domain.
 DOMAINS = [
-    ("banking.yaml", propose("transfer_funds", to="acme", amount=100), GateClass.FUND_TRANSFER),
+    ("rmm.yaml", propose("export_records", to="acme", count=100), GateClass.DATA_EXPORT),
     ("files.yaml", propose("delete_file", path="/etc/data"), GateClass.FILE_DELETE),
     ("network.yaml", propose("send_network", dest="10.0.0.9", payload="x"), GateClass.NETWORK_SEND),
     ("credentials.yaml", propose("access_credential", name="db"), GateClass.CREDENTIAL_ACCESS),
@@ -48,8 +48,8 @@ DOMAINS = [
 
 def build(tmp_path: Path, policy_file: str, timeout: float):
     registry = ToolRegistry()
-    register_banking(registry, BankingState(balances={"acct-1": 1000}, payees={"acct-1": []}))
-    register_files(registry, FileStore(files={"acct-1": {"/etc/data": "secret"}}))
+    register_rmm(registry, EndpointState(endpoints={"client-1": ["ep-1"]}, shares={"client-1": ["records"]}, destinations={"client-1": []}))
+    register_files(registry, FileStore(files={"client-1": {"/etc/data": "secret"}}))
     register_network(registry, NetworkLog())
     register_credentials(registry, CredentialStore(secrets={"db": "s3cr3t"}))
     audit_path = tmp_path / "audit.jsonl"
@@ -59,7 +59,7 @@ def build(tmp_path: Path, policy_file: str, timeout: float):
     service = MonitorService(
         load_policy(POLICIES / policy_file), registry, audit, sessions, queue, approval_timeout_s=timeout
     )
-    return service, service.open_session("acct-1"), queue, audit_path
+    return service, service.open_session("client-1"), queue, audit_path
 
 
 def _resolve_when_pending(queue: ApprovalQueue, approved: bool) -> threading.Thread:

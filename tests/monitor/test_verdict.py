@@ -19,12 +19,12 @@ from src.policy.schema import Policy
 from src.transport.contract import Verdict
 
 
-def make_call(tool: str = "get_balance", **args: object) -> ToolCall:
+def make_call(tool: str = "list_endpoints", **args: object) -> ToolCall:
     return ToolCall(
         tool=tool,
         args=args,
         session_id=SessionId("s1"),
-        principal=Principal("acct-1"),
+        principal=Principal("client-1"),
         call_id=CallId("c1"),
         timestamp=0.0,
     )

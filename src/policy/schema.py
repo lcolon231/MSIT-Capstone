@@ -83,7 +83,7 @@ class ChainStep:
     checks: Sequence[Check] = ()
     bind: Mapping[str, str] = field(
         default_factory=dict
-    )  # e.g. {"added_payee_id": "args.payee_id"}
+    )  # e.g. {"registered_destination": "args.destination"}
     enforce: Verdict | None = None  # set on blocking/escalating steps
     rule_id: str | None = None
 

@@ -40,6 +40,6 @@ def test_for_subject_returns_empty_tuple_for_unknown_subject() -> None:
 
 def test_for_subject_returns_stored_progress() -> None:
     key = SubjectKey(session_id=SessionId("s1"), principal=Principal("p1"))
-    progress = (ChainProgress(chain="recon_add_drain", node="n1"),)
+    progress = (ChainProgress(chain="recon_register_exfil", node="n1"),)
     state = SequenceState(progress={key: progress})
     assert state.for_subject(key) == progress

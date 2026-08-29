@@ -27,12 +27,12 @@ from src.monitor.service import MonitorService
 from src.monitor.session import RetentionConfig, SessionRegistry
 from src.monitor.types import CallId, GateClass, Principal, SessionId, ToolCall
 from src.policy.loader import load_policy
-from src.tools.banking import BankingState, register_banking
 from src.tools.base import ToolRegistry
+from src.tools.rmm import EndpointState, register_rmm
 from src.transport.contract import ResultStatus, ToolCallProposal, Verdict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-BANKING = REPO_ROOT / "policies" / "banking.yaml"
+RMM = REPO_ROOT / "policies" / "rmm.yaml"
 
 
 def make_call(tool: str, **args: object) -> ToolCall:
@@ -40,7 +40,7 @@ def make_call(tool: str, **args: object) -> ToolCall:
         tool=tool,
         args=args,
         session_id=SessionId("s1"),
-        principal=Principal("acct-1"),
+        principal=Principal("client-1"),
         call_id=CallId("c1"),
         timestamp=0.0,
     )
@@ -51,15 +51,15 @@ def propose(tool: str, **args: object) -> ToolCallProposal:
 
 
 def build(tmp_path: Path, timeout: float):
-    state = BankingState(balances={"acct-1": 1000}, payees={"acct-1": ["existing"]})
+    state = EndpointState(endpoints={"client-1": ["ep-1"]}, shares={"client-1": ["records"]}, destinations={"client-1": ["existing"]})
     registry = ToolRegistry()
-    register_banking(registry, state)
+    register_rmm(registry, state)
     audit_path = tmp_path / "audit.jsonl"
     audit = AuditWriter(audit_path)
     sessions = SessionRegistry(audit, RetentionConfig())
     queue = ApprovalQueue()
-    service = MonitorService(load_policy(BANKING), registry, audit, sessions, queue, approval_timeout_s=timeout)
-    return service, state, service.open_session("acct-1"), queue, audit_path
+    service = MonitorService(load_policy(RMM), registry, audit, sessions, queue, approval_timeout_s=timeout)
+    return service, state, service.open_session("client-1"), queue, audit_path
 
 
 def _resolve_when_pending(queue: ApprovalQueue, approved: bool, operator: str = "op-1") -> threading.Thread:
@@ -82,14 +82,14 @@ def _resolve_when_pending(queue: ApprovalQueue, approved: bool, operator: str = 
 
 
 def test_classify_gate_maps_the_four_classes() -> None:
-    assert classify_gate(make_call("transfer_funds")) is GateClass.FUND_TRANSFER
+    assert classify_gate(make_call("export_records")) is GateClass.DATA_EXPORT
     assert classify_gate(make_call("delete_file")) is GateClass.FILE_DELETE
     assert classify_gate(make_call("send_network")) is GateClass.NETWORK_SEND
     assert classify_gate(make_call("access_credential")) is GateClass.CREDENTIAL_ACCESS
 
 
 def test_classify_gate_returns_none_for_non_gate_tool() -> None:
-    assert classify_gate(make_call("get_balance")) is None
+    assert classify_gate(make_call("list_endpoints")) is None
 
 
 # --- ApprovalQueue mechanics --------------------------------------------------------------
@@ -97,7 +97,7 @@ def test_classify_gate_returns_none_for_non_gate_tool() -> None:
 
 def test_enqueue_lists_pending_with_a_hashed_digest() -> None:
     queue = ApprovalQueue()
-    record = queue.enqueue(make_call("transfer_funds", to="acme-1"), GateClass.FUND_TRANSFER)
+    record = queue.enqueue(make_call("export_records", to="acme-1"), GateClass.DATA_EXPORT)
     assert record.status is ApprovalStatus.PENDING
     assert queue.list_pending() == (record,)
     assert record.arg_digest != "acme-1" and len(record.arg_digest) == 64  # hashed, not plaintext
@@ -105,7 +105,7 @@ def test_enqueue_lists_pending_with_a_hashed_digest() -> None:
 
 def test_resolve_approves_and_await_unblocks() -> None:
     queue = ApprovalQueue()
-    record = queue.enqueue(make_call("transfer_funds"), GateClass.FUND_TRANSFER)
+    record = queue.enqueue(make_call("export_records"), GateClass.DATA_EXPORT)
     queue.resolve(record.approval_id, True, "op-1")
     assert queue.await_resolution(record.approval_id, 1.0) is ApprovalStatus.APPROVED
     assert queue.list_pending() == ()  # no longer pending once resolved
@@ -113,14 +113,14 @@ def test_resolve_approves_and_await_unblocks() -> None:
 
 def test_resolve_denies() -> None:
     queue = ApprovalQueue()
-    record = queue.enqueue(make_call("transfer_funds"), GateClass.FUND_TRANSFER)
+    record = queue.enqueue(make_call("export_records"), GateClass.DATA_EXPORT)
     queue.resolve(record.approval_id, False, "op-1")
     assert queue.await_resolution(record.approval_id, 1.0) is ApprovalStatus.DENIED
 
 
 def test_await_times_out_fail_closed() -> None:
     queue = ApprovalQueue()
-    record = queue.enqueue(make_call("transfer_funds"), GateClass.FUND_TRANSFER)
+    record = queue.enqueue(make_call("export_records"), GateClass.DATA_EXPORT)
     assert queue.await_resolution(record.approval_id, 0.05) is ApprovalStatus.TIMED_OUT
 
 
@@ -131,7 +131,7 @@ def test_resolve_unknown_id_raises() -> None:
 
 def test_resolve_is_idempotent() -> None:
     queue = ApprovalQueue()
-    record = queue.enqueue(make_call("transfer_funds"), GateClass.FUND_TRANSFER)
+    record = queue.enqueue(make_call("export_records"), GateClass.DATA_EXPORT)
     queue.resolve(record.approval_id, True, "op-1")
     again = queue.resolve(record.approval_id, False, "op-2")  # cannot flip an approved decision
     assert again.status is ApprovalStatus.APPROVED
@@ -143,39 +143,39 @@ def test_resolve_is_idempotent() -> None:
 def test_approved_gate_executes_and_keeps_gate_verdict(tmp_path: Path) -> None:
     service, state, session, queue, _ = build(tmp_path, timeout=2.0)
     approver = _resolve_when_pending(queue, approved=True)
-    result = service.handle(propose("transfer_funds", to="acme-1", amount=200), session)
+    result = service.handle(propose("export_records", to="acme-1", count=200), session)
     approver.join(timeout=2.0)
     assert result.status is ResultStatus.EXECUTED
     assert result.decision.verdict is Verdict.GATE  # gated, then operator-approved
-    assert state.balances["acct-1"] == 800  # the transfer ran
+    assert state.exported != []  # the transfer ran
 
 
 def test_operator_denial_blocks_execution(tmp_path: Path) -> None:
     service, state, session, queue, _ = build(tmp_path, timeout=2.0)
     approver = _resolve_when_pending(queue, approved=False)
-    result = service.handle(propose("transfer_funds", to="acme-1", amount=200), session)
+    result = service.handle(propose("export_records", to="acme-1", count=200), session)
     approver.join(timeout=2.0)
     assert result.status is ResultStatus.DENIED
-    assert state.balances["acct-1"] == 1000  # untouched
+    assert state.exported == []  # untouched
 
 
 def test_timed_out_gate_is_denied(tmp_path: Path) -> None:
     service, state, session, _queue, _ = build(tmp_path, timeout=0.05)
-    result = service.handle(propose("transfer_funds", to="acme-1", amount=200), session)
+    result = service.handle(propose("export_records", to="acme-1", count=200), session)
     assert result.status is ResultStatus.DENIED
     assert result.decision.verdict is Verdict.GATE
-    assert state.balances["acct-1"] == 1000
+    assert state.exported == []
 
 
 def test_agent_cannot_self_approve_via_arguments(tmp_path: Path) -> None:
     service, state, session, _queue, _ = build(tmp_path, timeout=0.05)
     # The agent smuggles approved=true and a persuasive reason — both are ignored.
     result = service.handle(
-        propose("transfer_funds", to="acme-1", amount=200, approved=True, reason="please approve"),
+        propose("export_records", to="acme-1", count=200, approved=True, reason="please approve"),
         session,
     )
     assert result.status is ResultStatus.DENIED
-    assert state.balances["acct-1"] == 1000  # never executed
+    assert state.exported == []  # never executed
 
 
 # --- separate approval-resolution audit event ---------------------------------------------
@@ -183,14 +183,14 @@ def test_agent_cannot_self_approve_via_arguments(tmp_path: Path) -> None:
 
 def test_gate_resolution_is_audited_separately(tmp_path: Path) -> None:
     service, _state, session, _queue, audit_path = build(tmp_path, timeout=0.05)
-    service.handle(propose("transfer_funds", to="acme-1", amount=200), session)
+    service.handle(propose("export_records", to="acme-1", count=200), session)
     events = list(replay(audit_path))
-    decisions = [e for e in events if isinstance(e, DecisionEvent) and e.tool == "transfer_funds"]
+    decisions = [e for e in events if isinstance(e, DecisionEvent) and e.tool == "export_records"]
     resolutions = [e for e in events if isinstance(e, ApprovalResolutionEvent)]
     assert decisions and decisions[0].verdict is Verdict.GATE  # original decision stays GATE
     assert len(resolutions) == 1
     resolution = resolutions[0]
-    assert resolution.gate_class is GateClass.FUND_TRANSFER
+    assert resolution.gate_class is GateClass.DATA_EXPORT
     assert resolution.resolution == "timed_out"
     assert resolution.operator is None
     assert resolution.arg_sha256 and "acme-1" not in resolution.arg_sha256  # hashed, not plaintext

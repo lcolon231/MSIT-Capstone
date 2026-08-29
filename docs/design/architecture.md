@@ -167,7 +167,7 @@ loopback deployment can support the OS-boundary claim.
   in and returned out; it is never read from or written to storage here.
 
 ### 3.7 `src/monitor/gate.py` — the approval gate (D5)
-- **Owns:** `GateClass` classification (`file delete · network send · fund transfer · credential
+- **Owns:** `GateClass` classification (`file delete · network send · data export · credential
   access`), the `PendingApproval` value type, and the `ApprovalQueue` (process-owned, mutable):
   enqueue on `GATE`, list pending, resolve by monitor-issued approval id. **Fail-closed:**
   unresolved/timeout prevents execution and produces `ResultStatus.DENIED`, while the original
@@ -208,9 +208,9 @@ loopback deployment can support the OS-boundary claim.
   A gate denial/timeout does not mutate the pure `Decision` from GATE to DENY: the dispatch status
   is `DENIED`, and `ApprovalResolutionEvent` records the operator outcome. This keeps `evaluate`
   pure while implementing D5's "no approval means no execution" rule.
-  For the canonical sequence, only a transfer to the bound new payee produces a sequence `DENY`;
+  For the canonical sequence, only an export to the bound new destination produces a sequence `DENY`;
   a different target makes sequence classification return `None`, preserves `S3`, and falls
-  through to the ordinary D5 fund-transfer `GATE` (D16).
+  through to the ordinary D5 data-export `GATE` (D16).
 - **May import:** everything on the enforcement side — `monitor/*`, `policy`, `audit`, `tools`,
   `transport/contract`.
 - **Must never import:** `src/agent`. The dependency points from agent → transport → service, never
@@ -260,8 +260,8 @@ loopback deployment can support the OS-boundary claim.
 - **Owns:** the inert `ToolMetadata` schema (`name`, allowed arguments, principal argument), the
   `Tool` protocol (`name` and `execute(args) -> ToolExecution`), the raw `ToolExecution` value,
   and the `ToolRegistry` (owned
-  and invoked *only* by `MonitorService`), and the mock domains (banking first: `get_balance`,
-  `list_payees`, `add_payee`, `transfer_funds` over an in-process `BankingState`; files/network/
+  and invoked *only* by `MonitorService`), and the mock domains (RMM first: `list_endpoints`,
+  `list_shares`, `register_destination`, `export_records` over an in-process `EndpointState`; files/network/
   creds later). **No real egress, no real filesystem** — all state is in-process.
 - **May import:** `src/monitor/types` (resolved `Principal`), the neutral transport contract
   (`JsonValue` only), and stdlib.

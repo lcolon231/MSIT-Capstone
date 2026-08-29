@@ -18,7 +18,7 @@ from src.policy.schema import Policy, Rule, SequenceConfig, TriggerEvent
 from src.transport.contract import Verdict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-BANKING = REPO_ROOT / "policies" / "banking.yaml"
+RMM = REPO_ROOT / "policies" / "rmm.yaml"
 
 
 def make_call(tool: str, **args: object) -> ToolCall:
@@ -26,7 +26,7 @@ def make_call(tool: str, **args: object) -> ToolCall:
         tool=tool,
         args=args,
         session_id=SessionId("s1"),
-        principal=Principal("acct-1"),
+        principal=Principal("client-1"),
         call_id=CallId("c1"),
         timestamp=0.0,
     )
@@ -46,25 +46,25 @@ def policy_of(*rules: Rule) -> Policy:
     return Policy(rules=rules, sequence=SequenceConfig())
 
 
-# --- against the real banking policy ------------------------------------------------------
+# --- against the real RMM policy ------------------------------------------------------
 
 
 def test_matching_allow_rule_allows_with_its_rule_id() -> None:
-    d = evaluate(make_call("get_balance"), load_policy(BANKING), SequenceState())
+    d = evaluate(make_call("list_endpoints"), load_policy(RMM), SequenceState())
     assert d.verdict is Verdict.ALLOW
-    assert d.rule_id == "banking.get_balance.allow"
+    assert d.rule_id == "rmm.list_endpoints.allow"
 
 
 def test_matching_deny_rule_denies_with_its_rule_id() -> None:
     # An always-forbidden operation (destroying the audit trail) must be denied by an explicit
     # rule, distinguishable from the fail-closed default by its rule_id.
-    d = evaluate(make_call("delete_transaction_history"), load_policy(BANKING), SequenceState())
+    d = evaluate(make_call("disable_logging"), load_policy(RMM), SequenceState())
     assert d.verdict is Verdict.DENY
-    assert d.rule_id == "banking.delete_transaction_history.deny"
+    assert d.rule_id == "rmm.disable_logging.deny"
 
 
 def test_unknown_tool_fails_closed_to_default() -> None:
-    d = evaluate(make_call("wire_to_offshore"), load_policy(BANKING), SequenceState())
+    d = evaluate(make_call("wire_to_offshore"), load_policy(RMM), SequenceState())
     assert d.verdict is Verdict.DENY
     assert d.rule_id == "default"
     assert d.reason == "no matching policy (fail-closed)"
@@ -92,7 +92,7 @@ def test_first_matching_rule_wins() -> None:
 
 
 def test_empty_policy_denies_everything() -> None:
-    for tool in ("get_balance", "transfer_funds", "anything"):
+    for tool in ("list_endpoints", "export_records", "anything"):
         assert evaluate(make_call(tool), Policy.deny_all(), SequenceState()).verdict is Verdict.DENY
 
 

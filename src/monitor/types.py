@@ -24,7 +24,7 @@ class GateClass(Enum):
 
     FILE_DELETE = "file_delete"
     NETWORK_SEND = "network_send"
-    FUND_TRANSFER = "fund_transfer"
+    DATA_EXPORT = "data_export"
     CREDENTIAL_ACCESS = "credential_access"
 
 

@@ -17,7 +17,7 @@ flowchart LR
         SVC["<b>MonitorService.handle</b><br/><i>complete mediation — only path to a tool</i>"]
         EVAL["<b>evaluate</b><br/>sequence engine + per-call policy<br/><i>pure, fail-closed</i>"]
         GATE["<b>Approval queue</b><br/><i>blocks on human for 4 D5 classes</i>"]
-        TOOLS["<b>Tool registry</b><br/>banking · files · network · credentials<br/><i>in-process mocks, no egress</i>"]
+        TOOLS["<b>Tool registry</b><br/>rmm · files · network · credentials<br/><i>in-process mocks, no egress</i>"]
         STATE["<b>Sequence state + SessionRegistry</b>"]
         SVC --> EVAL
         SVC --> GATE

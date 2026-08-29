@@ -31,7 +31,7 @@ from src.transport.contract import Verdict
 from src.web import ConsoleContext, Role, UserStore, create_app
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-BANKING = REPO_ROOT / "policies" / "banking.yaml"
+RMM = REPO_ROOT / "policies" / "rmm.yaml"
 
 
 def make_call(tool: str, **args: object) -> ToolCall:
@@ -39,7 +39,7 @@ def make_call(tool: str, **args: object) -> ToolCall:
         tool=tool,
         args=args,
         session_id=SessionId("s-abc123def456"),
-        principal=Principal("acct-1"),
+        principal=Principal("client-1"),
         call_id=CallId("c1"),
         timestamp=1000.0,
     )
@@ -49,25 +49,25 @@ def make_call(tool: str, **args: object) -> ToolCall:
 def context(tmp_path: Path) -> ConsoleContext:
     audit_path = tmp_path / "audit.jsonl"
     audit = AuditWriter(audit_path)
-    audit.append(decision_event(make_call("get_balance"), Decision(Verdict.ALLOW, "banking.get_balance.allow", "ok")))
-    audit.append(decision_event(make_call("transfer_funds", to="acme-1", amount=500), Decision(Verdict.GATE, "banking.transfer_funds.gate", "gated")))
+    audit.append(decision_event(make_call("list_endpoints"), Decision(Verdict.ALLOW, "rmm.list_endpoints.allow", "ok")))
+    audit.append(decision_event(make_call("export_records", to="acme-1", amount=500), Decision(Verdict.GATE, "rmm.export_records.gate", "gated")))
 
     sessions = SessionRegistry(audit, RetentionConfig())
-    key = SubjectKey(SessionId("s-abc123def456"), Principal("acct-1"))
+    key = SubjectKey(SessionId("s-abc123def456"), Principal("client-1"))
     sessions.commit(
         SessionId("s-abc123def456"),
-        SequenceState(progress={key: (ChainProgress(chain="recon_add_drain", node="S3_PAYEE_ADDED", bindings={"added_payee_id": "deadbeef"}, updated_at=1000.0),)}),
+        SequenceState(progress={key: (ChainProgress(chain="recon_register_exfil", node="S3_DESTINATION_ADDED", bindings={"registered_destination": "deadbeef"}, updated_at=1000.0),)}),
     )
 
     approvals = ApprovalQueue()
-    approvals.enqueue(make_call("transfer_funds", to="acme-1", amount=500), GateClass.FUND_TRANSFER)
+    approvals.enqueue(make_call("export_records", to="acme-1", amount=500), GateClass.DATA_EXPORT)
 
     return ConsoleContext(
         approvals=approvals,
         sessions=sessions,
-        policy=load_policy(BANKING),
+        policy=load_policy(RMM),
         audit_path=audit_path,
-        policy_source=BANKING.read_text(encoding="utf-8"),
+        policy_source=RMM.read_text(encoding="utf-8"),
     )
 
 
@@ -104,8 +104,8 @@ def test_login_then_dashboard_shows_decisions(client: FlaskClient) -> None:
     login(client, "op", "op-pass")
     resp = client.get("/")
     assert resp.status_code == 200
-    assert b"get_balance" in resp.data
-    assert b"transfer_funds" in resp.data
+    assert b"list_endpoints" in resp.data
+    assert b"export_records" in resp.data
 
 
 def test_logout_clears_session(client: FlaskClient) -> None:
@@ -161,17 +161,17 @@ def test_policy_viewer_renders_rules_and_chain(client: FlaskClient) -> None:
     login(client, "viewer", "viewer-pass")
     resp = client.get("/policy")
     assert resp.status_code == 200
-    assert b"banking.transfer_funds.gate" in resp.data
-    assert b"recon_add_drain" in resp.data
+    assert b"rmm.export_records.gate" in resp.data
+    assert b"recon_register_exfil" in resp.data
 
 
 def test_sequence_inspector_shows_partway_chain(client: FlaskClient) -> None:
     login(client, "viewer", "viewer-pass")
     resp = client.get("/sequence")
     assert resp.status_code == 200
-    assert b"recon_add_drain" in resp.data
-    assert b"S3_PAYEE_ADDED" in resp.data
-    assert b"added_payee_id" in resp.data
+    assert b"recon_register_exfil" in resp.data
+    assert b"S3_DESTINATION_ADDED" in resp.data
+    assert b"registered_destination" in resp.data
 
 
 def test_audit_view_lists_events(client: FlaskClient) -> None:

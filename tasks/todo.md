@@ -84,7 +84,7 @@ Confirmed submitted 2026-08-19; Canvas shows "Not Yet Graded". No further action
 ### T2.3 Policy schema + YAML loader (D2)
 - [ ] Field-frozen trigger / check / enforce schema
 - [ ] Loader rejects unknown fields and malformed policy with clear errors
-- [ ] `policies/banking.yaml` loads and validates
+- [ ] `policies/rmm.yaml` loads and validates
 - **Report:** code snippet of a policy rule — good Implementation content
 
 ### T2.4 Per-call verdict engine — criterion #2
@@ -116,30 +116,30 @@ and `src/policy`. 📸 Screenshot the CLI showing verdicts.
 - [ ] Session state explicit and inspectable; transitions deterministic
 - [ ] Unit tests for the transition table incl. duplicate/idempotent steps
 
-### T3.2 Banking mock domain + mediated dispatch — criterion #1
-- [ ] `get_balance`, `list_payees`, `add_payee`, `transfer_funds` over in-process state
+### T3.2 RMM mock domain + mediated dispatch — criterion #1
+- [ ] `list_endpoints`, `list_shares`, `register_destination`, `export_records` over in-process state
 - [ ] No tool executes without a `Decision`; unknown tool denied, not passed through
 - [ ] Malformed tool call still yields a `Decision` — never crash-open
 
 ### T3.3 Canonical chain wired — criterion #4
-- [ ] `get_balance → list_payees → add_payee → transfer_funds` blocked at sequence level while
+- [ ] `list_endpoints → list_shares → register_destination → export_records` blocked at sequence level while
       no step is denied by per-call policy: first three `ALLOW`, transfer would ordinarily `GATE`,
       and the full sequence `DENY` takes precedence (assert both layers)
 - [ ] Evasion: interleaving benign calls, reorder/partial chains, session-reset abuse,
       cross-session smear
-- [ ] **False-block guard:** a legitimate payee-add-then-transfer must NOT be blocked
+- [ ] **False-block guard:** a legitimate register-then-export must NOT be blocked
 - [ ] **Diagram #4 — sequence state machine** (hero diagram; poster centrepiece)
 - **Report:** Design §sequence evaluation; Implementation §2
 
 **Checkpoint:** the demo that carries the video and the poster. 📸 Screenshot the chain being
-blocked at `transfer_funds`.
+blocked at `export_records`.
 
 ---
 
 ## Phase 4 — Gate, console, agent loop
 
 ### T4.1 Approval gate (D5)
-- [ ] file-delete, network-send, fund-transfer, credential-access each → `GATE`
+- [ ] file-delete, network-send, data-export, credential-access each → `GATE`
 - [ ] No approval / timeout prevents execution (`ResultStatus.DENIED`); original verdict remains
       `GATE`, with a separate approval-resolution audit event
 - [ ] Agent output cannot flip GATE→ALLOW (`approved=true`, persuasive `reason` both ignored)
@@ -183,7 +183,7 @@ audit log records it. This is the video demo. 📸 Capture the whole flow.
 - [ ] **6 attack (≥3 chained) + 4 benign** — down from 15+10
 - [ ] Include one indirect-injection-via-tool-result scenario (ticket or log line carrying the
       payload — fits the MSP threat model, D9 option b)
-- [ ] Check the STAC repo (`amazon-science/MultiTurnAgentAttack`) for reusable Banking chains
+- [ ] Check the STAC repo (`amazon-science/MultiTurnAgentAttack`) for reusable RMM chains
       before writing from scratch
 
 ### T5.3 Eval runner + metrics — criterion #6

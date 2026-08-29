@@ -101,9 +101,9 @@ door open to AgentDojo cross-validation as a stretch goal, not a dependency.
 
 **Findings from the full STAC read (2026-08-19):**
 - Released data and code: <https://github.com/amazon-science/MultiTurnAgentAttack>. Check the
-  repo for reusable **Banking** chains before authoring scenarios from scratch (Task 14).
+  repo for reusable **RMM** chains before authoring scenarios from scratch (Task 14).
 - STAC's environments come from **SHADE-Arena** (Kutasov et al. 2025, which extends
-  AgentDojo): Banking, Travel, Workspace, Spam Filter Updating — plus 62 simpler environments
+  AgentDojo): RMM, Travel, Workspace, Spam Filter Updating — plus 62 simpler environments
   sampled from **Agent-SafetyBench** (Zhang et al. 2024), whose **10 agent-specific failure
   modes** are STAC's labelling scheme. Decide whether to label scenarios with those, with
   ATLAS techniques (per `qa-redteam-plan.md`), or both.
@@ -149,7 +149,7 @@ the target model as unrepresentative of the vulnerability class.
 
 ## D5 — Human-approval gate set
 **Decision:** The gate fires for exactly four irreversible/high-blast-radius operation
-classes: **file delete, network send/exfil, fund transfer, credential access.** All other
+classes: **file delete, network send/exfil, data export, credential access.** All other
 tool calls are allow/deny only (no gate).
 **Status:** Confirmed (2026-08-18).
 
@@ -160,7 +160,7 @@ worse than no gate. Scoping to irreversibility × blast radius keeps each prompt
 **Precedent (added 2026-08-19):** AgentSpec's `user_inspection` enforcement action is the
 direct analogue of `GATE`, and its worked example gates a **financial transfer** on a
 recipient predicate (`rule @inspect_transfer / trigger Transfer / check
-!is_to_family_member / enforce user_inspection`) — near-identical to this project's banking
+!is_to_family_member / enforce user_inspection`) — near-identical to this project's RMM
 domain. Cite it rather than re-deriving the justification.
 
 **External endorsement (added 2026-08-19):** STAC's Limitations name "action-level policies
@@ -177,7 +177,7 @@ alert-fatigue problem.
 ## D6 — Escape scoring
 **Decision:** A **custom deterministic checker per scenario**, mirroring AgentDojo's
 state-based approach: each red-team scenario declares a concrete post-condition (e.g.
-"funds moved to attacker payee", "file X deleted", "secret read into an outbound call").
+"records exported to an attacker destination", "file X deleted", "secret read into an outbound call").
 The checker inspects the recorded tool-call log / mock-tool state and returns a binary
 escape / no-escape verdict.
 **Status:** Confirmed (2026-08-18). **Vindicated 2026-08-19** by STAC's own limitations.
@@ -490,18 +490,18 @@ There is no agent-triggerable "forget history" operation.
 
 ## D16 — Canonical-chain near misses fall through to D5
 **Decision:** For the canonical chain, the sequence engine returns `DENY` only when `S3` receives
-`transfer_funds` whose canonical target digest equals the just-added payee binding. If the target
+`export_records` whose canonical target digest equals the just-registered destination binding. If the target
 does not match, the sequence engine returns `None`, preserves `S3`, and lets the ordinary per-call
-D5 fund-transfer rule return `GATE`. There is no separate sequence-specific near-miss `GATE` rule.
+D5 data-export rule return `GATE`. There is no separate sequence-specific near-miss `GATE` rule.
 **Status:** Confirmed (2026-08-24).
 
 **Why:** A second rule producing the same gate outcome duplicates policy semantics and makes the
 traceable `rule_id` ambiguous. The sequence engine should block the exact modeled composition;
-D5 already owns approval of ordinary fund transfers. Preserving `S3` ensures a later transfer to
-the bound payee still triggers the sequence `DENY`.
+D5 already owns approval of ordinary data exports. Preserving `S3` ensures a later transfer to
+the bound destination still triggers the sequence `DENY`.
 
-**Design impact:** Remove `seq.recon_add_drain.escalate` from the worked policy example and state
-diagram. A near miss is audited under the normal D5 fund-transfer rule and is permitted only after
+**Design impact:** Remove `seq.recon_register_exfil.escalate` from the worked policy example and state
+diagram. A near miss is audited under the normal D5 data-export rule and is permitted only after
 trusted operator approval.
 
 ---

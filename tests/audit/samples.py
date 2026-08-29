@@ -14,12 +14,12 @@ from src.monitor.types import CallId, GateClass, Principal, SessionId, ToolCall
 from src.transport.contract import Verdict
 
 
-def make_call(tool: str = "transfer_funds", **args: object) -> ToolCall:
+def make_call(tool: str = "export_records", **args: object) -> ToolCall:
     return ToolCall(
         tool=tool,
         args=args or {"account": "SECRET-IBAN-123", "amount": 9999},
         session_id=SessionId("s1"),
-        principal=Principal("acct-1"),
+        principal=Principal("client-1"),
         call_id=CallId("c1"),
         timestamp=1.0,
     )
@@ -29,13 +29,13 @@ def decision_ev(**over: Any) -> DecisionEvent:
     base: dict[str, Any] = dict(
         call_id="c1",
         session_id=SessionId("s1"),
-        principal=Principal("acct-1"),
-        tool="transfer_funds",
+        principal=Principal("client-1"),
+        tool="export_records",
         arg_sha256="deadbeef",
         verdict=Verdict.GATE,
-        rule_id="banking.transfer_funds.gate",
+        rule_id="rmm.export_records.gate",
         reason="matched rule",
-        gate_class=GateClass.FUND_TRANSFER,
+        gate_class=GateClass.DATA_EXPORT,
         timestamp=1.0,
     )
     base.update(over)
@@ -45,9 +45,9 @@ def decision_ev(**over: Any) -> DecisionEvent:
 def chain_ev() -> ChainProgressEvent:
     return ChainProgressEvent(
         session_id=SessionId("s1"),
-        principal=Principal("acct-1"),
-        chain="recon_add_drain",
-        from_node="added_payee",
+        principal=Principal("client-1"),
+        chain="recon_register_exfil",
+        from_node="registered_destination",
         to_node="drained",
         bindings_sha256="cafebabe",
         timestamp=2.0,
@@ -57,8 +57,8 @@ def chain_ev() -> ChainProgressEvent:
 def eviction_ev() -> EvictionEvent:
     return EvictionEvent(
         session_id=SessionId("s1"),
-        principal=Principal("acct-1"),
-        chain="recon_add_drain",
+        principal=Principal("client-1"),
+        chain="recon_register_exfil",
         evicted_node="recon",
         reason="chain cap exceeded",
         timestamp=3.0,
@@ -68,7 +68,7 @@ def eviction_ev() -> EvictionEvent:
 def lifecycle_ev() -> SessionLifecycleEvent:
     return SessionLifecycleEvent(
         session_id=SessionId("s1"),
-        principal=Principal("acct-1"),
+        principal=Principal("client-1"),
         action="open",
         timestamp=4.0,
     )

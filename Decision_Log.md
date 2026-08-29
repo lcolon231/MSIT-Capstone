@@ -112,9 +112,9 @@ door open to AgentDojo cross-validation as a stretch goal, not a dependency.
 
 **Findings from the full STAC read (2026-08-19):**
 - Released data and code: <https://github.com/amazon-science/MultiTurnAgentAttack>. Check the
-  repo for reusable **Banking** chains before authoring scenarios from scratch (Task 14).
+  repo for reusable **RMM** chains before authoring scenarios from scratch (Task 14).
 - STAC's environments come from **SHADE-Arena** (Kutasov et al. 2025, which extends
-  AgentDojo): Banking, Travel, Workspace, Spam Filter Updating — plus 62 simpler environments
+  AgentDojo): RMM, Travel, Workspace, Spam Filter Updating — plus 62 simpler environments
   sampled from **Agent-SafetyBench** (Zhang et al. 2024), whose **10 agent-specific failure
   modes** are STAC's labelling scheme. Decide whether to label scenarios with those, with
   ATLAS techniques (per `qa-redteam-plan.md`), or both.
@@ -160,7 +160,7 @@ the target model as unrepresentative of the vulnerability class.
 
 ## D5 — Human-approval gate set
 **Decision:** The gate fires for exactly four irreversible/high-blast-radius operation
-classes: **file delete, network send/exfil, fund transfer, credential access.** All other
+classes: **file delete, network send/exfil, data export, credential access.** All other
 tool calls are allow/deny only (no gate).
 **Status:** Confirmed (2026-08-18).
 
@@ -171,7 +171,7 @@ worse than no gate. Scoping to irreversibility × blast radius keeps each prompt
 **Precedent (added 2026-08-19):** AgentSpec's `user_inspection` enforcement action is the
 direct analogue of `GATE`, and its worked example gates a **financial transfer** on a
 recipient predicate (`rule @inspect_transfer / trigger Transfer / check
-!is_to_family_member / enforce user_inspection`) — near-identical to this project's banking
+!is_to_family_member / enforce user_inspection`) — near-identical to this project's RMM
 domain. Cite it rather than re-deriving the justification.
 
 **External endorsement (added 2026-08-19):** STAC's Limitations name "action-level policies
@@ -188,7 +188,7 @@ alert-fatigue problem.
 ## D6 — Escape scoring
 **Decision:** A **custom deterministic checker per scenario**, mirroring AgentDojo's
 state-based approach: each red-team scenario declares a concrete post-condition (e.g.
-"funds moved to attacker payee", "file X deleted", "secret read into an outbound call").
+"records exported to an attacker destination", "file X deleted", "secret read into an outbound call").
 The checker inspects the recorded tool-call log / mock-tool state and returns a binary
 escape / no-escape verdict.
 **Status:** Confirmed (2026-08-18). **Vindicated 2026-08-19** by STAC's own limitations.
@@ -459,7 +459,7 @@ smear as evasions the design must survive. Those tests cannot be written until t
 
 **The questions to answer, each with a report sentence attached:**
 - **Scope key** — is sequence state keyed to the agent session, the task, the operator, or the
-  target account? The banking chain smears across sessions if the key is too narrow.
+  target destination? The RMM chain smears across sessions if the key is too narrow.
 - **Lifetime** — does state expire on a timer, on task completion, or never within a run?
 - **Reset authority** — can *anything the agent does* clear state? Per `spec.md` §10 Boundaries
   the answer must be no, but that has to be enforced, not assumed.

@@ -70,7 +70,7 @@ class MonitorService:
         # holds only the token and cannot choose or forge the principal (D12.2).
         self._bindings: dict[str, tuple[SessionId, Principal]] = {}
 
-    def open_session(self, principal: str = "acct-primary") -> SessionHandle:
+    def open_session(self, principal: str = "client-primary") -> SessionHandle:
         """Assign a new session (D12.2) bound to a resolved principal and return its opaque
         handle. The principal is session-bound, not read from any per-call argument."""
         session_id = self._sessions.open_session()

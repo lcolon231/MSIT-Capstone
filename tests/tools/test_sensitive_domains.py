@@ -21,24 +21,24 @@ from src.tools.network import FetchUrl, NetworkLog, SendNetwork, register_networ
 
 
 def test_list_files_returns_sorted_paths() -> None:
-    store = FileStore(files={"acct-1": {"/b": "y", "/a": "x"}})
-    assert ListFiles(store).execute({}, "acct-1") == {"paths": ["/a", "/b"]}
+    store = FileStore(files={"client-1": {"/b": "y", "/a": "x"}})
+    assert ListFiles(store).execute({}, "client-1") == {"paths": ["/a", "/b"]}
 
 
 def test_read_file_returns_content_or_absent() -> None:
-    store = FileStore(files={"acct-1": {"/a": "hello"}})
-    assert ReadFile(store).execute({"path": "/a"}, "acct-1") == {"path": "/a", "present": True, "content": "hello"}
-    assert ReadFile(store).execute({"path": "/missing"}, "acct-1")["present"] is False
+    store = FileStore(files={"client-1": {"/a": "hello"}})
+    assert ReadFile(store).execute({"path": "/a"}, "client-1") == {"path": "/a", "present": True, "content": "hello"}
+    assert ReadFile(store).execute({"path": "/missing"}, "client-1")["present"] is False
 
 
 def test_delete_file_removes_existing_path() -> None:
-    store = FileStore(files={"acct-1": {"/a": "x", "/b": "y"}})
-    assert DeleteFile(store).execute({"path": "/a"}, "acct-1") == {"deleted": "/a", "existed": True}
-    assert list(store.files["acct-1"]) == ["/b"]
+    store = FileStore(files={"client-1": {"/a": "x", "/b": "y"}})
+    assert DeleteFile(store).execute({"path": "/a"}, "client-1") == {"deleted": "/a", "existed": True}
+    assert list(store.files["client-1"]) == ["/b"]
 
 
 def test_delete_missing_file_is_not_an_error() -> None:
-    assert DeleteFile(FileStore()).execute({"path": "/x"}, "acct-1")["existed"] is False
+    assert DeleteFile(FileStore()).execute({"path": "/x"}, "client-1")["existed"] is False
 
 
 # --- network ------------------------------------------------------------------------------
@@ -46,17 +46,17 @@ def test_delete_missing_file_is_not_an_error() -> None:
 
 def test_fetch_url_is_read_only_and_records_no_egress() -> None:
     log = NetworkLog()
-    result = FetchUrl(log).execute({"url": "http://mock/data"}, "acct-1")
+    result = FetchUrl(log).execute({"url": "http://mock/data"}, "client-1")
     assert result["url"] == "http://mock/data" and result["status"] == 200
-    assert log.fetched == [("acct-1", "http://mock/data")]
+    assert log.fetched == [("client-1", "http://mock/data")]
     assert log.sent == []  # a fetch never sends
 
 
 def test_send_network_records_bytes_without_egress() -> None:
     log = NetworkLog()
-    result = SendNetwork(log).execute({"dest": "10.0.0.1", "payload": "hello"}, "acct-1")
+    result = SendNetwork(log).execute({"dest": "10.0.0.1", "payload": "hello"}, "client-1")
     assert result == {"sent_to": "10.0.0.1", "bytes": 5}
-    assert log.sent == [("acct-1", "10.0.0.1", 5)]
+    assert log.sent == [("client-1", "10.0.0.1", 5)]
 
 
 # --- credentials --------------------------------------------------------------------------
@@ -64,17 +64,17 @@ def test_send_network_records_bytes_without_egress() -> None:
 
 def test_list_credentials_returns_names_only() -> None:
     store = CredentialStore(secrets={"db": "s3cr3t", "api": "k3y"})
-    result = ListCredentials(store).execute({}, "acct-1")
+    result = ListCredentials(store).execute({}, "client-1")
     assert result == {"names": ["api", "db"]}
     assert "s3cr3t" not in str(result) and "k3y" not in str(result)  # values never listed
 
 
 def test_access_credential_never_returns_the_value() -> None:
     store = CredentialStore(secrets={"db": "s3cr3t"})
-    result = AccessCredential(store).execute({"name": "db"}, "acct-1")
+    result = AccessCredential(store).execute({"name": "db"}, "client-1")
     assert result == {"accessed": "db", "present": True}
     assert "s3cr3t" not in str(result)
-    assert store.accesses == [("acct-1", "db")]
+    assert store.accesses == [("client-1", "db")]
 
 
 # --- registration -------------------------------------------------------------------------
