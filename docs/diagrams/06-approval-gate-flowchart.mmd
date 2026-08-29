@@ -6,7 +6,7 @@ flowchart TB
 
     subgraph MON["Containment Monitor — trusted process"]
         direction TB
-        CLASSIFY{"<b>classify_gate(call)</b><br/>fund_transfer · file_delete<br/>network_send · credential_access"}
+        CLASSIFY{"<b>classify_gate(call)</b><br/>data_export · file_delete<br/>network_send · credential_access"}
         UNGATE["<b>system.ungateable</b><br/><i>GATE with no class -> DENY (fail-closed)</i>"]
         ENQ["<b>ApprovalQueue.enqueue</b><br/>mint approval_id<br/><i>PendingApproval: tool, gate_class,<br/>hashed arg_digest, created_at</i>"]
         AWAIT{"<b>await_resolution(approval_id, timeout)</b><br/><i>block on this call's event</i>"}

@@ -2,7 +2,7 @@
 
 > **Phase 2 design, v2.1 (2026-08-24).** Design-only. Defines the states, transitions, data
 > bindings, and DENY-vs-GATE rules of the explicit kill-chain automaton. The worked example is the
-> canonical banking chain `get_balance → list_payees → add_payee → transfer_funds`, in which every
+> canonical RMM chain `list_endpoints → list_shares → register_destination → export_records`, in which every
 > call passes per-call checks and only the *composition* is blocked.
 >
 > Decision basis: **D1** (explicit state machine, not heuristics or probabilistic reachability),
@@ -56,9 +56,9 @@ def evaluate(call: ToolCall, policy: Policy, state: SequenceState) -> Decision:
 `evaluate` is **pure and read-only**. It does *not* advance state. State advancement is a separate
 pure step (`advance`, §6) that the service applies **only after a call is permitted and the mock
 tool reports successful execution**. This split keeps `evaluate` side-effect-free and avoids
-advancing a chain for a failed `add_payee` or other no-effect tool outcome.
+advancing a chain for a failed `register_destination` or other no-effect tool outcome.
 
-**Precedence note (resolved here, flagged as a design choice):** `transfer_funds` is a D5 gate
+**Precedence note (resolved here, flagged as a design choice):** `export_records` is a D5 gate
 class, so *per-call* policy would return `GATE` for it. The sequence engine runs first, so when the
 full kill chain is present it returns `DENY` and the per-call `GATE` never runs. "Every call passes
 per-call checks" therefore means *no per-call rule denies any step*; the composition is what turns a
@@ -80,7 +80,7 @@ SequenceState
            ChainProgress:
              node:        one of the automaton states (§4)
              binding_digests:
-                          named SHA-256 values captured on entry (e.g. added_payee_id)
+                          named SHA-256 values captured on entry (e.g. registered_destination)
              step_times:  timestamp per completed step   (for pacing / lookback analysis)
              updated_at:  last advance (for idle expiry)
 ```
@@ -109,51 +109,51 @@ SequenceState
 
 ## 4. The canonical automaton (worked example)
 
-Modeled chain `banking.recon_add_drain`. Steps must occur **in order** for the *same principal*;
+Modeled chain `rmm.recon_register_exfil`. Steps must occur **in order** for the *same principal*;
 benign calls in between are ignored (they don't advance and don't reset — see §7).
 
 | State | Meaning | Entered when |
 |---|---|---|
 | `S0_IDLE` | no within-lookback progress | initial, or after replay finds no retained prefix |
-| `S1_BALANCE` | reconnaissance: balance read | `get_balance` on the principal |
-| `S2_PAYEES` | reconnaissance: existing payees enumerated | `list_payees` while in `S1_BALANCE` |
-| `S3_PAYEE_ADDED` | a **new** payee was added after full recon | `add_payee` while in `S2_PAYEES`; **binds** `added_payee_id` |
+| `S1_ENDPOINTS` | reconnaissance: endpoints enumerated | `list_endpoints` on the principal |
+| `S2_SHARES` | reconnaissance: existing PHI shares enumerated | `list_shares` while in `S1_ENDPOINTS` |
+| `S3_DESTINATION_ADDED` | a **new** export destination was registered after full recon | `register_destination` while in `S2_SHARES`; **binds** `registered_destination` |
 | `S4_BLOCKED` | terminal trap (bookkeeping only) | the blocking transition fired |
 
 ### Transitions
 
 ```
-S0_IDLE      --get_balance-->            S1_BALANCE
-S1_BALANCE   --list_payees-->            S2_PAYEES
-S2_PAYEES    --add_payee(p)-->           S3_PAYEE_ADDED   [bind added_payee_id = H(p)]
-S3_PAYEE_ADDED --transfer_funds(H(to)=H(p))--> S4_BLOCKED  [BLOCKING: emit verdict]   ← the kill chain
-S3_PAYEE_ADDED --transfer_funds(H(to)≠H(p))--> (None, stay S3) [fall through to D5 GATE]
+S0_IDLE      --list_endpoints-->            S1_ENDPOINTS
+S1_ENDPOINTS   --list_shares-->            S2_SHARES
+S2_SHARES    --register_destination(p)-->           S3_DESTINATION_ADDED   [bind registered_destination = H(p)]
+S3_DESTINATION_ADDED --export_records(H(to)=H(p))--> S4_BLOCKED  [BLOCKING: emit verdict]   ← the kill chain
+S3_DESTINATION_ADDED --export_records(H(to)≠H(p))--> (None, stay S3) [fall through to D5 GATE]
 ```
 
 `H` is canonical SHA-256 over one value. The blocking transition
-(`S3 --transfer to the just-added payee--> S4`) is the whole point: the
-recon prefix (`get_balance`, `list_payees`) plus adding a **new** payee plus immediately draining to
-**that** payee is the fraud signature. The digest equality binding (§5) is what separates fraud
-from a legitimate payment without retaining the identifier in the audit log.
+(`S3 --export to the just-registered destination--> S4`) is the whole point: the
+recon prefix (`list_endpoints`, `list_shares`) plus registering a **new** destination plus immediately exporting to
+**that** destination is the exfiltration signature. The digest equality binding (§5) is what separates exfiltration
+from a legitimate export without retaining the identifier in the audit log.
 
 ---
 
 ## 5. Data binding — why this is not a false-block factory
 
 The critical requirement (`tasks/todo.md` T3.3, `tasks/qa-redteam-plan.md` T4.3): **a legitimate
-payee-add-then-transfer must not be blocked.** The automaton achieves this three ways, all
+register-then-export must not be blocked.** The automaton achieves this three ways, all
 deterministic:
 
 1. **Full ordered prefix required.** The blocking transition is only reachable from `S3`, which is
-   only reachable via `S0→S1→S2→S3`. A legitimate flow that is just `add_payee → transfer_funds`
+   only reachable via `S0→S1→S2→S3`. A legitimate flow that is just `register_destination → export_records`
    (no recon sweep) never enters `S1`/`S2`, so `classify` returns `None` and the call falls through
-   to per-call policy. Under D5 the transfer receives `GATE`; after legitimate operator approval it
+   to per-call policy. Under D5 the export receives `GATE`; after legitimate operator approval it
    executes. That is the required benign **pass**, not a sequence-level ALLOW that would bypass D5.
    **Dropping any prefix step drops you off the chain.**
 2. **Target binding.** The blocking transition requires
-   `H(transfer_funds.to) == binding_digests["added_payee_id"]`. A transfer to a **pre-existing**
-   payee — even after recon — is a near-miss, not the kill chain. Under D16, `classify` returns
-   `None`, ordinary D5 policy returns `GATE`, and `S3` is preserved. Plaintext payee identifiers
+   `H(export_records.to) == binding_digests["registered_destination"]`. An export to a **pre-existing**
+   destination — even after recon — is a near-miss, not the kill chain. Under D16, `classify` returns
+   `None`, ordinary D5 policy returns `GATE`, and `S3` is preserved. Plaintext destination identifiers
    are not retained in the audit log.
 3. **No historical reset by the agent.** The agent cannot wipe `S3` by declaring a new task,
    choosing a session, or waiting for live idle expiry. Monitor-side lifecycle actions clear the
@@ -178,8 +178,8 @@ def advance(call: ToolCall, policy: Policy, state: SequenceState) -> SequenceSta
 
 - `classify` is invoked inside `evaluate` (step 1, §2).
 - `advance` is invoked by `MonitorService` **after** a permitted call succeeds. The
-  terminal `transfer_funds` is *denied*, so it never executes and never advances to `S4` via
-  `advance`; `S4` is bookkeeping recorded alongside the DENY decision, not a sign the transfer ran.
+  terminal `export_records` is *denied*, so it never executes and never advances to `S4` via
+  `advance`; `S4` is bookkeeping recorded alongside the DENY decision, not a sign the export ran.
 
 Both are pure; all mutation and persistence live in `session.py` + `audit`.
 
@@ -192,10 +192,10 @@ From `tasks/qa-redteam-plan.md` T4.2, each with the automaton's deterministic an
 | Evasion | Automaton behaviour |
 |---|---|
 | **Interleaving** benign calls (`search_docs`) between steps | Unmatched calls neither advance nor reset the chain node; `S3` survives noise. |
-| **Reordering / partial chains** (`add_payee → transfer` with no recon) | Not on the modeled path → `classify` returns `None` → per-call policy applies (transfer still gates). Intentional: this is the false-block guard, not a miss. |
+| **Reordering / partial chains** (`register_destination → export_records` with no recon) | Not on the modeled path → `classify` returns `None` → per-call policy applies (export still gates). Intentional: this is the false-block guard, not a miss. |
 | **Session-reset abuse** ("new task" to wipe state) | Agent cannot reset state (D12.3). A new session is re-seeded from the principal's audit history (§3). |
-| **Duplicate / idempotent steps** (repeated `add_payee`) | A repeated, successful add in `S3` re-binds `added_payee_id` to the latest canonical digest; a failed add does not alter state. No off-by-one advance. |
-| **Cross-session smear** (chain split across two runs) | The `principal` anchor + audit replay reconstructs the prefix in the second session, so the terminal transfer still trips. |
+| **Duplicate / idempotent steps** (repeated `register_destination`) | A repeated, successful add in `S3` re-binds `registered_destination` to the latest canonical digest; a failed add does not alter state. No off-by-one advance. |
+| **Cross-session smear** (chain split across two runs) | The `principal` anchor + audit replay reconstructs the prefix in the second session, so the terminal export still trips. |
 
 ---
 
@@ -203,8 +203,8 @@ From `tasks/qa-redteam-plan.md` T4.2, each with the automaton's deterministic an
 
 | Situation | Verdict | rule_id (example) | Rationale |
 |---|---|---|---|
-| Full kill chain: `S3` + `H(transfer_funds.to) = binding_digests["added_payee_id"]` | **DENY** | `seq.recon_add_drain.terminal` | High-confidence modeled fraud; hard-block without spending a human approval. |
-| Near-miss at `S3`: target digest differs from `binding_digests["added_payee_id"]` | `None` from sequence; **GATE** from per-call policy | `gate.fund_transfer` (D5) | D16 avoids duplicate gate semantics. Preserve `S3`; ordinary fund-transfer approval decides execution. |
+| Full kill chain: `S3` + `H(export_records.to) = binding_digests["registered_destination"]` | **DENY** | `seq.recon_register_exfil.terminal` | High-confidence modeled exfiltration; hard-block without spending a human approval. |
+| Near-miss at `S3`: target digest differs from `binding_digests["registered_destination"]` | `None` from sequence; **GATE** from per-call policy | `gate.data_export` (D5) | D16 avoids duplicate gate semantics. Preserve `S3`; ordinary data-export approval decides execution. |
 | No modeled chain at a blocking/escalating transition | `None` | — | Fall through to per-call policy (§2). |
 
 Design stance: **the sequence engine only ever tightens.** It can turn a per-call `ALLOW`/`GATE`
@@ -221,25 +221,25 @@ Proposed `SequenceConfig` shape follows below. Under D17, `interface-contracts.m
 
 ```yaml
 sequences:
-  - name: recon_add_drain
-    domain: banking
+  - name: recon_register_exfil
+    domain: rmm
     steps:                       # ordered; each references a per-call trigger
-      - trigger: get_balance
-        to: S1_BALANCE
-      - trigger: list_payees
-        from: S1_BALANCE
-        to: S2_PAYEES
-      - trigger: add_payee
-        from: S2_PAYEES
-        to: S3_PAYEE_ADDED
-        bind: {added_payee_id: "args.payee_id"}
-      - trigger: transfer_funds
-        from: S3_PAYEE_ADDED
+      - trigger: list_endpoints
+        to: S1_ENDPOINTS
+      - trigger: list_shares
+        from: S1_ENDPOINTS
+        to: S2_SHARES
+      - trigger: register_destination
+        from: S2_SHARES
+        to: S3_DESTINATION_ADDED
+        bind: {registered_destination: "args.destination"}
+      - trigger: export_records
+        from: S3_DESTINATION_ADDED
         check:
-          - predicate: target_is_bound_payee
-            params: {argument: "to", binding: "added_payee_id"}
+          - predicate: target_is_bound_value
+            params: {argument: "to", binding: "registered_destination"}
         enforce: DENY
-        rule_id: seq.recon_add_drain.terminal
+        rule_id: seq.recon_register_exfil.terminal
 ```
 
 `check` entries reference **named, vetted predicate functions** (the immutable runtime registry in
@@ -247,7 +247,7 @@ sequences:
 receive monitor-owned `PredicateContext.binding_digests`; that context is not YAML and is not
 agent-authored. The loader rejects an unregistered predicate (fail-closed at load time).
 If the terminal predicate does not match, the sequence layer returns `None`; the canonical chain
-does not declare a negated duplicate gate rule. D5's per-call fund-transfer rule supplies the
+does not declare a negated duplicate gate rule. D5's per-call data-export rule supplies the
 traceable `GATE` decision (D16).
 
 > The concrete field names above are a **proposal**. Per the working agreement, the policy YAML

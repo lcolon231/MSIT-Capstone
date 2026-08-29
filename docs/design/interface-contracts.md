@@ -75,7 +75,7 @@ service. Identifier types are distinct logical types even when serialized as str
 | `ToolCall` | Normalized tool name and canonical arguments plus monitor-owned `SessionId`, resolved `Principal` when available, `CallId`, monitor timestamp, and `CallValidation`. The agent never constructs it. | Monitor types |
 | `Verdict` | Exactly `ALLOW`, `DENY`, or `GATE`. | Neutral contract |
 | `Decision` | Frozen value containing `verdict`, non-empty `rule_id`, operator-readable `reason`, and optional `gate_class` only when verdict is `GATE`. | Verdict engine |
-| `GateClass` | Exactly file delete, network send, fund transfer, or credential access (D5). | Approval gate |
+| `GateClass` | Exactly file delete, network send, data export, or credential access (D5). | Approval gate |
 | `DecisionSummary` | Agent-visible subset of a decision: verdict, rule id, and bounded explanation. It exposes no policy internals or approval authority. | Transport contract |
 | `ResultStatus` | `EXECUTED`, `TOOL_FAILED`, or `DENIED`. A synchronous dispatch waits for gate resolution up to the configured timeout; pending approval remains monitor-internal. | Transport contract |
 | `ToolResult` | `status`, `DecisionSummary`, and untrusted JSON payload only when a tool ran. A denied/timeout gate retains the original `GATE` decision summary while status is `DENIED`. | Monitor service |
@@ -91,8 +91,8 @@ service. Identifier types are distinct logical types even when serialized as str
 | Malformed proposal or arguments | `DENY` | `system.malformed_call` |
 | Unknown tool | `DENY` | `system.unknown_tool` |
 | Principal cannot be resolved unambiguously | `DENY` | `system.unresolved_principal` |
-| Full canonical recon-add-drain terminal match | `DENY` | `seq.recon_add_drain.terminal` |
-| Canonical `S3` transfer target does not match | Sequence returns no decision; per-call policy returns `GATE` | `gate.fund_transfer` |
+| Full canonical recon-register-exfil terminal match | `DENY` | `seq.recon_register_exfil.terminal` |
+| Canonical `S3` export target does not match | Sequence returns no decision; per-call policy returns `GATE` | `gate.data_export` |
 | Matching per-call rule | Rule's `ALLOW`, `DENY`, or `GATE` | Human-authored rule id |
 | No matching rule | `DENY` | `system.default_deny` |
 

@@ -1,12 +1,12 @@
 ---
-title: "Figure 4 — Sequence State Machine: the recon-add-drain kill chain"
+title: "Figure 4 — Sequence State Machine: the recon-register-exfil kill chain"
 ---
 stateDiagram-v2
     direction LR
 
     [*] --> S0_IDLE
 
-    S0_IDLE --> S1_BALANCE : get_balance\n(ALLOW per-call)
+    S0_IDLE --> S1_ENDPOINTS : list_endpoints\n(ALLOW per-call)
     note left of S0_IDLE
         State keyed on (session_id, resource_principal).
         Advances only on a permitted, successful call.
@@ -17,26 +17,26 @@ stateDiagram-v2
         named binding digests are reconstructible.
     end note
 
-    S1_BALANCE --> S2_PAYEES : list_payees\n(ALLOW per-call)
-    S2_PAYEES --> S3_PAYEE_ADDED : add_payee(p) succeeds\n(ALLOW per-call)\nbind payee digest = H(p)
+    S1_ENDPOINTS --> S2_SHARES : list_shares\n(ALLOW per-call)
+    S2_SHARES --> S3_DESTINATION_ADDED : register_destination(p) succeeds\n(ALLOW per-call)\nbind destination digest = H(p)
 
-    S3_PAYEE_ADDED --> S4_BLOCKED : transfer_funds(H(to) = H(p))\nBLOCKING -> DENY\nrule_id seq.recon_add_drain.terminal
-    S3_PAYEE_ADDED --> S3_PAYEE_ADDED : transfer_funds(H(to) != H(p))\nsequence -> None; ordinary D5 GATE\npreserve S3 (D16)
-    note right of S3_PAYEE_ADDED
+    S3_DESTINATION_ADDED --> S4_BLOCKED : export_records(H(to) = H(p))\nBLOCKING -> DENY\nrule_id seq.recon_register_exfil.terminal
+    S3_DESTINATION_ADDED --> S3_DESTINATION_ADDED : export_records(H(to) != H(p))\nsequence -> None; ordinary D5 GATE\npreserve S3 (D16)
+    note right of S3_DESTINATION_ADDED
         False-block guard:
-        a bare add_payee -> transfer_funds
+        a bare register_destination -> export_records
         with no recon prefix never reaches S3.
-        A transfer to a different/pre-existing payee
+        An export to a different/pre-existing destination
         returns None from sequence; normal D5 GATE applies,
         and operator approval lets it pass.
     end note
 
-    S1_BALANCE --> S1_BALANCE : benign call\n(interleaving ignored)
-    S2_PAYEES --> S2_PAYEES : benign call\n(interleaving ignored)
-    S3_PAYEE_ADDED --> S3_PAYEE_ADDED : successful duplicate add_payee\n(idempotent digest re-bind)
+    S1_ENDPOINTS --> S1_ENDPOINTS : benign call\n(interleaving ignored)
+    S2_SHARES --> S2_SHARES : benign call\n(interleaving ignored)
+    S3_DESTINATION_ADDED --> S3_DESTINATION_ADDED : successful duplicate register_destination\n(idempotent digest re-bind)
 
-    S1_BALANCE --> S0_IDLE : live expiry / eviction\n(logged; replay may restore)
-    S2_PAYEES --> S0_IDLE : live expiry / eviction\n(logged; replay may restore)
-    S3_PAYEE_ADDED --> S0_IDLE : live expiry / eviction\n(logged; replay may restore)
+    S1_ENDPOINTS --> S0_IDLE : live expiry / eviction\n(logged; replay may restore)
+    S2_SHARES --> S0_IDLE : live expiry / eviction\n(logged; replay may restore)
+    S3_DESTINATION_ADDED --> S0_IDLE : live expiry / eviction\n(logged; replay may restore)
 
-    S4_BLOCKED --> [*] : DENY recorded in audit log\n(transfer never executed)
+    S4_BLOCKED --> [*] : DENY recorded in audit log\n(export never executed)
