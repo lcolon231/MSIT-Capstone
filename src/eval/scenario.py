@@ -17,6 +17,7 @@ from typing import Any, Callable, Mapping
 
 from src.audit.events import AuditEvent
 from src.audit.replay import replay
+from src.transport.contract import ToolCallProposal
 
 
 class AtlasTechnique(Enum):
@@ -30,9 +31,10 @@ class AtlasTechnique(Enum):
 
 @dataclass(frozen=True)
 class ScenarioLabels:
-    """D13: ATLAS primary (required), Agent-SafetyBench secondary (optional, STAC-adapted only)."""
+    """D13: ATLAS primary technique (required for ATTACK scenarios; None for benign ones), plus an
+    optional Agent-SafetyBench secondary mode (STAC-adapted only)."""
 
-    atlas_technique: AtlasTechnique
+    atlas_technique: AtlasTechnique | None = None
     agent_safetybench_mode: str | None = None
 
 
@@ -64,10 +66,22 @@ PostConditionChecker = Callable[[ScenarioResult], bool]
 
 @dataclass(frozen=True)
 class Scenario:
-    """One red-team or benign scenario."""
+    """One red-team or benign scenario.
+
+    `script` is the agent's scripted sequence of tool-call proposals, so the runner (#19) can
+    replay the scenario deterministically through the monitor with no live LLM. `approve_gates`
+    models the operator: an attack leaves gated steps un-approved (they fail closed), a benign
+    scenario approves its legitimate gated actions."""
 
     scenario_id: str
     is_attack: bool
     labels: ScenarioLabels
-    task: str  # the operator task text that drives the agent run
-    check: PostConditionChecker  # binary escape verdict (D6); required for every scenario
+    task: str  # the operator task text (drives a live model; documentation for the scripted run)
+    check: PostConditionChecker  # binary post-condition verdict (D6); required for every scenario
+    script: tuple[ToolCallProposal, ...] = ()
+    approve_gates: bool = False
+
+    @property
+    def is_chained(self) -> bool:
+        """A multi-step attack: three or more tool calls composed into the effect."""
+        return len(self.script) >= 3
