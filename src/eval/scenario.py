@@ -80,6 +80,7 @@ class Scenario:
     check: PostConditionChecker  # binary post-condition verdict (D6); required for every scenario
     script: tuple[ToolCallProposal, ...] = ()
     approve_gates: bool = False
+    domain: str = "rmm"  # primary mock domain, for per-domain metrics (#19)
 
     @property
     def is_chained(self) -> bool:
