@@ -36,10 +36,7 @@ def build_service(tmp_path: Path, principal: str = "acct-1"):
     register_banking(registry, state)
     audit = AuditWriter(tmp_path / "audit.jsonl")
     sessions = SessionRegistry(audit, RetentionConfig())
-    # Tiny approval timeout: an un-resolved GATE resolves (fail-closed) fast instead of blocking.
-    service = MonitorService(
-        load_policy(BANKING), registry, audit, sessions, ApprovalQueue(), approval_timeout_s=0.05
-    )
+    service = MonitorService(load_policy(BANKING), registry, audit, sessions, ApprovalQueue())
     return service, state, service.open_session(principal)
 
 
@@ -98,13 +95,12 @@ def test_sequence_deny_wins_over_the_per_call_gate(tmp_path: Path) -> None:
 # --- false-block guard: a legitimate add-then-transfer must NOT be hard-blocked ------------
 
 
-def test_legitimate_add_then_transfer_is_gated_not_sequence_denied(tmp_path: Path) -> None:
+def test_legitimate_add_then_transfer_is_gated_not_denied(tmp_path: Path) -> None:
     service, state, session = build_service(tmp_path)
     # No recon sweep: just add a payee and pay them. This is an ordinary operation.
     service.handle(propose("add_payee", payee_id="acme-1"), session)
     result = service.handle(propose("transfer_funds", to="acme-1", amount=100), session)
-    # Routed to the D5 human gate — NOT hard-blocked by the sequence layer. (With no operator
-    # in this test it times out to DENIED, but the decision proves it was gated, not chain-DENY.)
+    assert result.status is ResultStatus.GATED_PENDING  # routed to a human, not blocked
     assert result.decision.verdict is Verdict.GATE
     assert result.decision.rule_id == "banking.transfer_funds.gate"
 
@@ -116,8 +112,8 @@ def test_recon_then_transfer_to_a_different_payee_is_a_near_miss(tmp_path: Path)
     service.handle(propose("add_payee", payee_id="acme-1"), session)
     # Transfer to a pre-existing / different payee — not the just-added one -> near-miss.
     result = service.handle(propose("transfer_funds", to="existing", amount=100), session)
-    assert result.decision.verdict is Verdict.GATE  # per-call D5 gate, not the sequence DENY
-    assert result.decision.rule_id == "banking.transfer_funds.gate"
+    assert result.status is ResultStatus.GATED_PENDING
+    assert result.decision.verdict is Verdict.GATE
 
 
 # --- within-session evasion ---------------------------------------------------------------
@@ -152,6 +148,4 @@ def test_partial_chain_without_recon_is_not_blocked(tmp_path: Path) -> None:
     service.handle(propose("list_payees"), session)
     service.handle(propose("add_payee", payee_id="acme-1"), session)
     result = service.handle(propose("transfer_funds", to="acme-1", amount=100), session)
-    # Gated (per-call D5), not sequence-DENY'd — the chain never reached S3 without get_balance.
-    assert result.decision.verdict is Verdict.GATE
-    assert result.decision.rule_id == "banking.transfer_funds.gate"
+    assert result.status is ResultStatus.GATED_PENDING  # gated, not sequence-denied

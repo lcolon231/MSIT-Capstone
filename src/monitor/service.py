@@ -23,11 +23,11 @@ import time
 import uuid
 from typing import Any, Mapping
 
-from src.audit.writer import AuditWriter, approval_resolution_event, decision_event
+from src.audit.writer import AuditWriter, decision_event
 from src.monitor import sequence
-from src.monitor.gate import ApprovalQueue, ApprovalStatus, classify_gate
+from src.monitor.gate import ApprovalQueue
 from src.monitor.session import SessionRegistry
-from src.monitor.types import CallId, Decision, Principal, SequenceState, SessionId, ToolCall
+from src.monitor.types import CallId, Decision, Principal, SessionId, ToolCall
 from src.monitor.verdict import evaluate
 from src.policy.schema import Policy
 from src.tools.base import ToolRegistry
@@ -58,14 +58,12 @@ class MonitorService:
         audit: AuditWriter,
         sessions: SessionRegistry,
         approvals: ApprovalQueue,
-        approval_timeout_s: float = 300.0,
     ) -> None:
         self._policy = policy
         self._tools = tools
         self._audit = audit
         self._sessions = sessions
-        self._approvals = approvals
-        self._approval_timeout_s = approval_timeout_s
+        self._approvals = approvals  # queue wiring / await is issue #13 (T4.1)
         # Opaque session token -> monitor-owned (session id, resolved principal). The agent
         # holds only the token and cannot choose or forge the principal (D12.2).
         self._bindings: dict[str, tuple[SessionId, Principal]] = {}
@@ -107,57 +105,11 @@ class MonitorService:
         if decision.verdict is Verdict.DENY:
             return _result(ResultStatus.DENIED, decision)
         if decision.verdict is Verdict.GATE:
-            return self._gate(call, decision, state, session_id, principal)
+            # The call does not execute. Approval queueing + await lands in issue #13 (T4.1);
+            # until then a gated call is reported pending and the tool never runs.
+            return _result(ResultStatus.GATED_PENDING, decision)
 
         # ALLOW: dispatch through the registry — the one and only execution path.
-        return self._execute(call, decision, state, session_id, principal)
-
-    def _gate(
-        self,
-        call: ToolCall,
-        decision: Decision,
-        state: SequenceState,
-        session_id: SessionId,
-        principal: Principal,
-    ) -> ToolResult:
-        """Route a GATE decision to a human and block until resolved or timeout (D5). The agent
-        cannot influence this: approval is keyed on a monitor-issued id resolved via the console,
-        never read from the call's arguments. The original verdict stays GATE either way."""
-        gate_class = decision.gate_class or classify_gate(call)
-        if gate_class is None:
-            # A GATE with no resolvable class is a policy misconfiguration — fail closed.
-            return _result(
-                ResultStatus.DENIED,
-                Decision(Verdict.DENY, "system.ungateable", "GATE without a gate class (fail-closed)"),
-            )
-        pending = self._approvals.enqueue(call, gate_class)
-        status = self._approvals.await_resolution(pending.approval_id, self._approval_timeout_s)
-        self._audit.append(
-            approval_resolution_event(
-                call,
-                gate_class,
-                str(pending.approval_id),
-                status.value,
-                operator=None,  # operator identity is attached by the console on resolve (#14)
-            )
-        )
-        if status is ApprovalStatus.APPROVED:
-            # Approved: execute, but the decision's verdict remains GATE (it was gated, then
-            # allowed by an operator — not a per-call ALLOW).
-            return self._execute(call, decision, state, session_id, principal)
-        # No approval / denied / timed out: the tool never runs (fail-closed).
-        return _result(ResultStatus.DENIED, decision)
-
-    def _execute(
-        self,
-        call: ToolCall,
-        decision: Decision,
-        state: SequenceState,
-        session_id: SessionId,
-        principal: Principal,
-    ) -> ToolResult:
-        """Dispatch a permitted call through the registry — the one and only execution path —
-        then advance and commit sequence state."""
         tool = self._tools.get(call.tool)
         if tool is None:
             return _result(
@@ -172,8 +124,7 @@ class MonitorService:
         next_state = sequence.advance(call, self._policy, state)
         if next_state is not state:
             self._sessions.commit(session_id, next_state)
-        status = ResultStatus.EXECUTED
-        return _result(status, decision, payload)
+        return _result(ResultStatus.EXECUTED, decision, payload)
 
     def _enrich(
         self, proposal: ToolCallProposal, session_id: SessionId, principal: Principal

@@ -11,8 +11,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from src.audit.events import ApprovalResolutionEvent, AuditEvent, DecisionEvent, to_jsonl
-from src.monitor.types import Decision, GateClass, ToolCall
+from src.audit.events import AuditEvent, DecisionEvent, to_jsonl
+from src.monitor.types import Decision, ToolCall
 
 
 def hash_arguments(args: Mapping[str, Any]) -> str:
@@ -36,30 +36,6 @@ def decision_event(
         rule_id=decision.rule_id,
         reason=decision.reason,
         gate_class=decision.gate_class,
-        timestamp=call.timestamp if timestamp is None else timestamp,
-    )
-
-
-def approval_resolution_event(
-    call: ToolCall,
-    gate_class: GateClass,
-    approval_id: str,
-    resolution: str,
-    operator: str | None,
-    timestamp: float | None = None,
-) -> ApprovalResolutionEvent:
-    """Build the SEPARATE event recorded when a GATE is resolved (approved/denied/timed_out).
-    The original DecisionEvent keeps its GATE verdict; this records only the resolution."""
-    return ApprovalResolutionEvent(
-        approval_id=approval_id,
-        call_id=str(call.call_id),
-        session_id=call.session_id,
-        principal=call.principal,
-        tool=call.tool,
-        arg_sha256=hash_arguments(call.args),
-        gate_class=gate_class,
-        resolution=resolution,
-        operator=operator,
         timestamp=call.timestamp if timestamp is None else timestamp,
     )
 

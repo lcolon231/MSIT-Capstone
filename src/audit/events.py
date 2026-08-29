@@ -21,7 +21,6 @@ class EventType(Enum):
     CHAIN_PROGRESS = "chain_progress"
     EVICTION = "eviction"
     SESSION_LIFECYCLE = "session_lifecycle"
-    APPROVAL_RESOLUTION = "approval_resolution"
 
 
 @dataclass(frozen=True)
@@ -79,32 +78,7 @@ class SessionLifecycleEvent:
     timestamp: float
 
 
-@dataclass(frozen=True)
-class ApprovalResolutionEvent:
-    """An operator (or timeout) resolving a GATE decision (D5). SEPARATE from the original
-    DecisionEvent, which keeps its GATE verdict — this records only how the gate was resolved.
-    `operator` is null on a timeout. `arg_sha256` is a hash, never plaintext (criterion #8)."""
-
-    type: EventType = field(default=EventType.APPROVAL_RESOLUTION, init=False)
-    approval_id: str
-    call_id: str
-    session_id: SessionId
-    principal: Principal
-    tool: str
-    arg_sha256: str
-    gate_class: GateClass
-    resolution: str  # "approved" | "denied" | "timed_out"
-    operator: str | None
-    timestamp: float
-
-
-AuditEvent = (
-    DecisionEvent
-    | ChainProgressEvent
-    | EvictionEvent
-    | SessionLifecycleEvent
-    | ApprovalResolutionEvent
-)
+AuditEvent = DecisionEvent | ChainProgressEvent | EvictionEvent | SessionLifecycleEvent
 
 
 class AuditFormatError(ValueError):
@@ -171,20 +145,6 @@ def from_jsonl(line: str) -> AuditEvent:
                 session_id=SessionId(raw["session_id"]),
                 principal=Principal(principal) if principal is not None else None,
                 action=raw["action"],
-                timestamp=raw["timestamp"],
-            )
-        if event_type == EventType.APPROVAL_RESOLUTION.value:
-            operator = raw["operator"]
-            return ApprovalResolutionEvent(
-                approval_id=raw["approval_id"],
-                call_id=raw["call_id"],
-                session_id=SessionId(raw["session_id"]),
-                principal=Principal(raw["principal"]),
-                tool=raw["tool"],
-                arg_sha256=raw["arg_sha256"],
-                gate_class=GateClass(raw["gate_class"]),
-                resolution=raw["resolution"],
-                operator=operator if operator is None else str(operator),
                 timestamp=raw["timestamp"],
             )
     except (KeyError, ValueError, TypeError) as exc:
