@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block body %}
+<div style="max-width:360px; margin:4rem auto;">
+  <div class="card">
+    <h1 style="text-align:center;">Operator Console</h1>
+    <p class="muted" style="text-align:center; margin-top:-.6rem;">Agent Tool-Call Containment Monitor</p>
+    {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+    <form method="post" action="{{ url_for('console.login') }}">
+      <p>
+        <label for="username" class="muted">Username</label><br>
+        <input id="username" name="username" autocomplete="username" autofocus
+               style="width:100%; padding:.5rem; border:1px solid #cbd5e1; border-radius:6px;">
+      </p>
+      <p>
+        <label for="password" class="muted">Password</label><br>
+        <input id="password" name="password" type="password" autocomplete="current-password"
+               style="width:100%; padding:.5rem; border:1px solid #cbd5e1; border-radius:6px;">
+      </p>
+      <button type="submit" class="approve" style="width:100%; background:var(--navy);">Sign in</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

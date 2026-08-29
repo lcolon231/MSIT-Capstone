@@ -52,6 +52,11 @@ class SessionRegistry:
         )
         return session_id
 
+    def live_state(self) -> SequenceState:
+        """The current live sequence-state snapshot, read-only. Used by the operator console's
+        sequence inspector to show which chains are part-way advanced (#14)."""
+        return self._state
+
     def state_for(self, session_id: SessionId, principal: str) -> SequenceState:
         """Return current sequence state. (#12 seeds a cold session from the principal's audit
         history via replay; here the live process-wide snapshot is returned directly.)"""
