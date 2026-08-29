@@ -1,0 +1,49 @@
+---
+title: "Figure 6 — Approval Gate (D5): human-in-the-loop for the four irreversible classes"
+---
+flowchart TB
+    DECISION{{"<b>Decision = GATE</b><br/>verdict + rule_id + reason<br/><i>from per-call policy or an escalating chain step</i>"}}
+
+    subgraph MON["Containment Monitor — trusted process"]
+        direction TB
+        CLASSIFY{"<b>classify_gate(call)</b><br/>fund_transfer · file_delete<br/>network_send · credential_access"}
+        UNGATE["<b>system.ungateable</b><br/><i>GATE with no class -> DENY (fail-closed)</i>"]
+        ENQ["<b>ApprovalQueue.enqueue</b><br/>mint approval_id<br/><i>PendingApproval: tool, gate_class,<br/>hashed arg_digest, created_at</i>"]
+        AWAIT{"<b>await_resolution(approval_id, timeout)</b><br/><i>block on this call's event</i>"}
+        EXEC["<b>Tool registry.execute</b><br/><i>verdict STAYS gate — operator-allowed,<br/>not a per-call ALLOW</i>"]
+        DENY["<b>ToolResult = DENIED</b><br/><i>tool never runs</i>"]
+        DONE["<b>ToolResult = EXECUTED</b><br/><i>payload returned</i>"]
+    end
+
+    AGENTARGS["<b>Agent-supplied args</b><br/><i>approved=true · persuasive reason</i>"]
+    OPS["<b>Operator console</b><br/>list_pending → resolve(approval_id, approved, operator)"]
+    LOG[("<b>Audit Log</b> — append-only JSONL<br/>DecisionEvent (verdict=GATE) +<br/>ApprovalResolutionEvent (resolution, operator, gate_class)")]
+
+    DECISION --> CLASSIFY
+    CLASSIFY -->|"no class"| UNGATE --> DENY
+    CLASSIFY -->|"one of 4 classes"| ENQ --> AWAIT
+    ENQ -.->|"visible to console"| OPS
+
+    AGENTARGS -. "IGNORED — never read for approval (D5 tamper-resistance)" .-> ENQ
+
+    OPS -->|"approved"| AWAIT
+    OPS -->|"denied"| AWAIT
+    AWAIT -->|"APPROVED"| EXEC --> DONE
+    AWAIT -->|"DENIED / TIMED_OUT (no approval)"| DENY
+
+    AWAIT ==>|"ApprovalResolutionEvent"| LOG
+    DECISION ==>|"original GATE decision"| LOG
+
+    classDef decision fill:#2e5c8a,stroke:#1f3864,color:#ffffff,stroke-width:2px
+    classDef mon fill:#dce6f1,stroke:#2e5c8a,color:#1f3864
+    classDef store fill:#ede7f6,stroke:#5e35b1,color:#311b92
+    classDef ops fill:#e8f0e3,stroke:#4a7c3f,color:#254a1d
+    classDef agent fill:#f8d7da,stroke:#a94442,color:#7a2a2f,stroke-width:2px
+    classDef deny fill:#f4cccc,stroke:#a94442,color:#7a2a2f
+
+    class DECISION decision
+    class CLASSIFY,ENQ,AWAIT,EXEC,UNGATE mon
+    class DENY,DONE deny
+    class LOG store
+    class OPS ops
+    class AGENTARGS agent

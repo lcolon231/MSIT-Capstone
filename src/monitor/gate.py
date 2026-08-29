@@ -23,8 +23,8 @@ from src.monitor.types import GateClass, ToolCall
 
 ApprovalId = NewType("ApprovalId", str)
 
-# The tool → gate-class map (D5). `transfer_funds` is the live banking gate class; the file /
-# network / credential domains register their gate-class tools here as they land in #16. The
+# The tool → gate-class map (D5). One live tool per class today (banking transfer + the minimal
+# file / network / credential ops); #16 adds further operations under these same classes. The
 # class is derived from the call, never from agent-supplied text.
 GATE_CLASS_BY_TOOL: dict[str, GateClass] = {
     "transfer_funds": GateClass.FUND_TRANSFER,

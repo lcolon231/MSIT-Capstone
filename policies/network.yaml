@@ -1,0 +1,8 @@
+# Network mock domain (issue #13 criterion 1, expanded in #16). Outbound send is a high-blast-
+# radius egress action, so it routes to a human (D5 network-send gate class).
+
+rules:
+  - rule_id: network.send_network.gate
+    tool: send_network
+    trigger: action
+    enforce: gate
