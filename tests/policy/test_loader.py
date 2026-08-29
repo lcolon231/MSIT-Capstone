@@ -91,6 +91,60 @@ def test_validate_accepts_empty_sequence_block() -> None:
     assert policy.sequence.chains == ()
 
 
+def chain_policy(steps: list[dict[str, object]], name: str = "c") -> dict[str, object]:
+    """A minimal policy carrying one modeled chain, for structural validation tests."""
+    return {"rules": [], "sequence": {"chains": [{"name": name, "domain": "rmm", "steps": steps}]}}
+
+
+def test_validate_rejects_disconnected_chain_steps() -> None:
+    # A step whose `from` is not the previous step's `to` is unreachable at runtime; reject at
+    # load time rather than shipping a chain that silently never fires.
+    raw = chain_policy(
+        [
+            {"trigger": "list_endpoints", "to": "S1_ENDPOINTS"},
+            {"trigger": "list_shares", "from": "WRONG", "to": "S2_SHARES"},
+        ],
+        name="broken",
+    )
+    with pytest.raises(PolicyError, match="previous step's to node"):
+        validate_policy(raw)
+
+
+def test_validate_rejects_sequence_allow() -> None:
+    # The sequence layer may only tighten (sequence-engine.md §8): a chain that could emit ALLOW
+    # would let a modeled composition loosen per-call policy.
+    raw = chain_policy(
+        [
+            {
+                "trigger": "export_records",
+                "to": "DONE",
+                "enforce": "allow",
+                "rule_id": "bad.allow",
+            }
+        ],
+        name="loosens_policy",
+    )
+    with pytest.raises(PolicyError, match="may only tighten"):
+        validate_policy(raw)
+
+
+def test_validate_rejects_non_argument_binding_source() -> None:
+    # Bindings capture monitor-owned call arguments only. Anything else would let policy bind a
+    # value the agent controls the meaning of.
+    raw = chain_policy(
+        [
+            {
+                "trigger": "register_destination",
+                "to": "S1",
+                "bind": {"destination": "agent.claimed_destination"},
+            }
+        ],
+        name="bad_binding",
+    )
+    with pytest.raises(PolicyError, match=r"args\.<name>"):
+        validate_policy(raw)
+
+
 def test_load_missing_file_raises_policy_error() -> None:
     with pytest.raises(PolicyError):
         load_policy(REPO_ROOT / "policies" / "does_not_exist.yaml")

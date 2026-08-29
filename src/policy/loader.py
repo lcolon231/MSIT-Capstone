@@ -5,6 +5,10 @@ Contract:
   - Validates that every `Check.predicate` names a registered predicate (predicates.REGISTRY).
   - On ANY load/validation failure the caller must fall back to `Policy.deny_all()` — a load
     failure yields an all-DENY policy, never an empty allow (docs/design/architecture.md §3.10).
+
+Sequence blocks carry extra structural validation (sequence-engine.md §9): a chain must be a
+connected path from the implicit start node, its bindings must reference monitor-owned call
+arguments, and it may never declare `enforce: allow` — the sequence layer only ever tightens (§8).
 """
 
 from __future__ import annotations
@@ -40,6 +44,8 @@ _CHAIN_REQUIRED = ("name", "domain", "steps")
 # ChainStep dataclass's from_node/to_node.
 _STEP_FIELDS = frozenset({"trigger", "from", "to", "checks", "bind", "enforce", "rule_id"})
 _STEP_REQUIRED = ("trigger", "to")
+# A `bind` value names one argument of the triggering call. Monitor-owned; never agent-authored.
+_BIND_PREFIX = "args"
 
 
 class PolicyError(ValueError):
@@ -85,7 +91,8 @@ def _parse_rule(raw: object, index: int) -> Rule:
     trigger = _parse_enum(TriggerEvent, raw["trigger"], f"{where}.trigger")
     enforce = _parse_enum(Verdict, raw["enforce"], f"{where}.enforce")
     checks = tuple(
-        _parse_check(item, f"{where}.checks[{j}]") for j, item in enumerate(raw.get("checks") or ())
+        _parse_check(item, f"{where}.checks[{j}]")
+        for j, item in enumerate(_parse_list(raw.get("checks"), f"{where}.checks"))
     )
     return Rule(
         rule_id=str(raw["rule_id"]),
@@ -119,7 +126,14 @@ def _parse_sequence(raw: object) -> SequenceConfig:
     if not isinstance(raw, dict):
         raise PolicyError(f"sequence must be a mapping, got {type(raw).__name__}")
     _reject_unknown(raw, _SEQUENCE_FIELDS, "sequence")
-    chains = tuple(_parse_chain(item, i) for i, item in enumerate(raw.get("chains") or ()))
+    chains = tuple(
+        _parse_chain(item, i)
+        for i, item in enumerate(_parse_list(raw.get("chains"), "sequence.chains"))
+    )
+    names = [chain.name for chain in chains]
+    duplicates = sorted({name for name in names if names.count(name) > 1})
+    if duplicates:
+        raise PolicyError(f"sequence.chains contains duplicate chain name(s) {duplicates}")
     return SequenceConfig(chains=chains)
 
 
@@ -132,11 +146,27 @@ def _parse_chain(raw: object, index: int) -> ChainSpec:
         if field_name not in raw:
             raise PolicyError(f"{where} missing required field '{field_name}'")
     steps = tuple(
-        _parse_step(item, where, j) for j, item in enumerate(raw.get("steps") or ())
+        _parse_step(item, where, j)
+        for j, item in enumerate(_parse_list(raw.get("steps"), f"{where}.steps"))
     )
     if not steps:
         raise PolicyError(f"{where} must declare at least one step")
-    return ChainSpec(name=str(raw["name"]), domain=str(raw["domain"]), steps=steps)
+    # The chain must be a connected path out of the implicit start node (sequence-engine.md §4):
+    # the first step leaves S0_IDLE (`from` omitted), and each later step resumes where the
+    # previous one landed. A disconnected step would be silently unreachable at runtime.
+    if steps[0].from_node is not None:
+        raise PolicyError(f"{where}.steps[0].from must be omitted for the initial transition")
+    for j, (previous, current) in enumerate(zip(steps, steps[1:]), start=1):
+        if current.from_node != previous.to_node:
+            raise PolicyError(
+                f"{where}.steps[{j}].from must equal the previous step's to node "
+                f"{previous.to_node!r}, got {current.from_node!r}"
+            )
+    return ChainSpec(
+        name=_parse_text(raw["name"], f"{where}.name"),
+        domain=_parse_text(raw["domain"], f"{where}.domain"),
+        steps=steps,
+    )
 
 
 def _parse_step(raw: object, chain_where: str, index: int) -> ChainStep:
@@ -148,22 +178,69 @@ def _parse_step(raw: object, chain_where: str, index: int) -> ChainStep:
         if field_name not in raw:
             raise PolicyError(f"{where} missing required field '{field_name}'")
     checks = tuple(
-        _parse_check(item, f"{where}.checks[{k}]") for k, item in enumerate(raw.get("checks") or ())
+        _parse_check(item, f"{where}.checks[{k}]")
+        for k, item in enumerate(_parse_list(raw.get("checks"), f"{where}.checks"))
     )
-    enforce = _parse_enum(Verdict, raw["enforce"], f"{where}.enforce") if "enforce" in raw else None
-    bind_raw = raw.get("bind") or {}
-    if not isinstance(bind_raw, dict):
-        raise PolicyError(f"{where}.bind must be a mapping, got {type(bind_raw).__name__}")
+    bind = _parse_bindings(raw.get("bind"), f"{where}.bind")
+    enforce_raw = raw.get("enforce")
+    enforce = None if enforce_raw is None else _parse_enum(Verdict, enforce_raw, f"{where}.enforce")
+    rule_id_raw = raw.get("rule_id")
+    # A blocking step's verdict must be traceable to a rule_id (D16); a rule_id with nothing to
+    # enforce is a policy-authoring mistake. Require both or neither.
+    if (enforce is None) != (rule_id_raw is None):
+        raise PolicyError(f"{where}.enforce and {where}.rule_id must be declared together")
+    if enforce is Verdict.ALLOW:
+        raise PolicyError(f"{where}.enforce cannot be 'allow'; the sequence layer may only tighten")
     from_raw = raw.get("from")
     return ChainStep(
-        trigger=str(raw["trigger"]),
-        to_node=str(raw["to"]),
-        from_node=None if from_raw is None else str(from_raw),
+        trigger=_parse_text(raw["trigger"], f"{where}.trigger"),
+        to_node=_parse_text(raw["to"], f"{where}.to"),
+        from_node=None if from_raw is None else _parse_text(from_raw, f"{where}.from"),
         checks=checks,
-        bind={str(k): str(v) for k, v in bind_raw.items()},
+        bind=bind,
         enforce=enforce,
-        rule_id=None if "rule_id" not in raw else str(raw["rule_id"]),
+        rule_id=None if rule_id_raw is None else _parse_text(rule_id_raw, f"{where}.rule_id"),
     )
+
+
+def _parse_bindings(raw: object, where: str) -> dict[str, str]:
+    """Parse a step's `bind` mapping. Each source must name one argument of the triggering call
+    (`args.<name>`), so a binding can only ever capture monitor-owned, schema-validated call data
+    (sequence-engine.md §5) — never an agent-authored assertion about itself."""
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise PolicyError(f"{where} must be a mapping, got {type(raw).__name__}")
+    bindings: dict[str, str] = {}
+    for name, source in raw.items():
+        binding_name = _parse_text(name, f"{where} binding name")
+        expression = _parse_text(source, f"{where}.{binding_name}")
+        prefix, separator, argument = expression.partition(".")
+        if prefix != _BIND_PREFIX or separator != "." or not argument:
+            raise PolicyError(
+                f"{where}.{binding_name} must reference an {_BIND_PREFIX}.<name> value, "
+                f"got {expression!r}"
+            )
+        bindings[binding_name] = expression
+    return bindings
+
+
+def _parse_list(raw: object, where: str) -> list[object]:
+    """A required-list field: absent is an empty list, but a non-list is a policy error rather
+    than something silently coerced away."""
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise PolicyError(f"{where} must be a list, got {type(raw).__name__}")
+    return raw
+
+
+def _parse_text(raw: object, where: str) -> str:
+    """A required identifier: node names, triggers and rule_ids are matched by exact string at
+    runtime, so an empty or non-string value can never match and is rejected at load time."""
+    if not isinstance(raw, str) or not raw.strip():
+        raise PolicyError(f"{where} must be a non-empty string, got {raw!r}")
+    return raw
 
 
 def _parse_enum(enum_cls: type[_E], value: object, where: str) -> _E:
