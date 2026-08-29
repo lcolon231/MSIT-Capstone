@@ -1,7 +1,17 @@
-# Files mock domain (issue #13 criterion 1, expanded in #16). Deleting a file is irreversible,
-# so it routes to a human (D5 file-delete gate class). No matching rule -> fail-closed DENY.
+# Files mock domain (issue #16, T4.4). Reads are allowed; deleting a file is irreversible and
+# routes to a human (D5 file-delete gate class). No matching rule -> fail-closed DENY.
 
 rules:
+  - rule_id: files.list_files.allow
+    tool: list_files
+    trigger: action
+    enforce: allow
+
+  - rule_id: files.read_file.allow
+    tool: read_file
+    trigger: action
+    enforce: allow
+
   - rule_id: files.delete_file.gate
     tool: delete_file
     trigger: action

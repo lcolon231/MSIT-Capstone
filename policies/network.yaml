@@ -1,7 +1,12 @@
-# Network mock domain (issue #13 criterion 1, expanded in #16). Outbound send is a high-blast-
-# radius egress action, so it routes to a human (D5 network-send gate class).
+# Network mock domain (issue #16, T4.4). A read-only fetch is allowed; outbound send is a
+# high-blast-radius egress action and routes to a human (D5 network-send gate class).
 
 rules:
+  - rule_id: network.fetch_url.allow
+    tool: fetch_url
+    trigger: action
+    enforce: allow
+
   - rule_id: network.send_network.gate
     tool: send_network
     trigger: action

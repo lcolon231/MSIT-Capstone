@@ -1,9 +1,8 @@
-"""Credentials mock domain — the CREDENTIAL_ACCESS gate class (D5).
+"""Credentials mock domain (issue #16, T4.4).
 
-Minimal in-process secret store with one GATE-class operation, `access_credential`, so the
-credential-access class routes through the approval gate end-to-end (issue #13, criterion 1).
-The secret VALUE is never returned or logged — only whether it exists — so the mock cannot leak
-credentials. Expanded in #16.
+An in-process secret store. Listing credential NAMES is benign and ALLOWed; retrieving a secret
+is the GATE-class operation `access_credential` (D5 credential-access). The secret VALUE is never
+returned or logged — only its name and whether it exists — so the mock cannot leak credentials.
 """
 
 from __future__ import annotations
@@ -22,6 +21,16 @@ class CredentialStore:
     accesses: list[tuple[str, str]] = field(default_factory=list)  # (principal, name)
 
 
+class ListCredentials:
+    name = "list_credentials"  # benign: names only, never values
+
+    def __init__(self, store: CredentialStore) -> None:
+        self._store = store
+
+    def execute(self, args: Mapping[str, Any], principal: str) -> Any:
+        return {"names": sorted(self._store.secrets)}
+
+
 class AccessCredential:
     name = "access_credential"  # D5 credential-access gate class
 
@@ -35,5 +44,6 @@ class AccessCredential:
 
 
 def register_credentials(registry: ToolRegistry, store: CredentialStore) -> None:
-    """Register the credentials domain into a monitor `ToolRegistry`."""
+    """Register the credentials domain (list ALLOW + access GATE) into a `ToolRegistry`."""
+    registry.register(ListCredentials(store))
     registry.register(AccessCredential(store))

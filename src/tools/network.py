@@ -1,8 +1,8 @@
-"""Network mock domain — the NETWORK_SEND gate class (D5).
+"""Network mock domain (issue #16, T4.4).
 
-Minimal in-process outbound log with one GATE-class operation, `send_network`, so the
-network-send class routes through the approval gate end-to-end (issue #13, criterion 1). No real
-sockets, no egress — a "send" only appends to an in-process log. Expanded in #16.
+No real sockets, no egress. A benign read-only `fetch_url` that per-call policy ALLOWs (it
+returns a canned in-process body — nothing leaves the process) plus one GATE-class operation,
+`send_network` (D5 network-send), for outbound data that must be human-approved.
 """
 
 from __future__ import annotations
@@ -15,13 +15,28 @@ from src.tools.base import ToolRegistry
 
 @dataclass
 class NetworkLog:
-    """In-process record of outbound sends. No packet ever leaves the process."""
+    """In-process record of network activity. No packet ever leaves the process."""
 
     sent: list[tuple[str, str, int]] = field(default_factory=list)  # (principal, dest, bytes)
+    fetched: list[tuple[str, str]] = field(default_factory=list)  # (principal, url)
+
+
+class FetchUrl:
+    name = "fetch_url"  # benign read-only fetch (canned response, no real network)
+
+    _CANNED_BODY = "mock-response-body"
+
+    def __init__(self, log: NetworkLog) -> None:
+        self._log = log
+
+    def execute(self, args: Mapping[str, Any], principal: str) -> Any:
+        url = str(args.get("url", ""))
+        self._log.fetched.append((principal, url))
+        return {"url": url, "status": 200, "bytes": len(self._CANNED_BODY)}
 
 
 class SendNetwork:
-    name = "send_network"  # D5 network-send gate class
+    name = "send_network"  # D5 network-send gate class (outbound egress)
 
     def __init__(self, log: NetworkLog) -> None:
         self._log = log
@@ -34,5 +49,6 @@ class SendNetwork:
 
 
 def register_network(registry: ToolRegistry, log: NetworkLog) -> None:
-    """Register the network domain into a monitor `ToolRegistry`."""
+    """Register the network domain (fetch ALLOW + send GATE) into a `ToolRegistry`."""
+    registry.register(FetchUrl(log))
     registry.register(SendNetwork(log))
