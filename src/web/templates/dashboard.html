@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block body %}
+<h1>Dashboard</h1>
+
+<div class="card">
+  <div class="stat"><span class="n">{{ pending_count }}</span><span class="l">Pending approvals</span></div>
+  <div class="stat"><span class="n">{{ decisions|length }}</span><span class="l">Recent decisions</span></div>
+</div>
+
+<h2>Recent decisions</h2>
+<div class="card">
+  {% if decisions %}
+  <table>
+    <tr><th>Time</th><th>Tool</th><th>Verdict</th><th>Rule</th><th>Reason</th></tr>
+    {% for d in decisions %}
+    <tr>
+      <td class="mono muted">{{ '%.0f'|format(d.timestamp) }}</td>
+      <td class="mono">{{ d.tool }}</td>
+      <td><span class="tag {{ d.verdict.value }}">{{ d.verdict.value }}</span></td>
+      <td class="mono">{{ d.rule_id }}</td>
+      <td class="muted">{{ d.reason }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="empty">No decisions recorded yet.</p>
+  {% endif %}
+</div>
+
+<h2>Recent gate resolutions</h2>
+<div class="card">
+  {% if resolutions %}
+  <table>
+    <tr><th>Tool</th><th>Class</th><th>Resolution</th><th>Operator</th></tr>
+    {% for r in resolutions %}
+    <tr>
+      <td class="mono">{{ r.tool }}</td>
+      <td class="mono">{{ r.gate_class.value }}</td>
+      <td><span class="tag {{ 'allow' if r.resolution == 'approved' else 'deny' }}">{{ r.resolution }}</span></td>
+      <td class="mono">{{ r.operator or '—' }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="empty">No gate resolutions yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

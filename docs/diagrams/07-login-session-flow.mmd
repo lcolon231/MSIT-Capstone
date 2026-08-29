@@ -1,0 +1,50 @@
+---
+title: "Figure 7 — Operator Console: login, session, and role-based approval flow"
+---
+sequenceDiagram
+    autonumber
+    actor U as Operator / Viewer
+    participant B as Browser
+    participant C as Console (Flask)
+    participant US as UserStore<br/>(werkzeug hashes)
+    participant Q as ApprovalQueue<br/>(shared with monitor)
+
+    Note over U,C: 1 — Authentication
+    U->>B: open console
+    B->>C: GET /login
+    C-->>B: login form
+    U->>B: username + password
+    B->>C: POST /login
+    C->>US: verify(username, password)
+    alt invalid
+        US-->>C: None
+        C-->>B: 401 — re-render with error
+    else valid
+        US-->>C: User(role)
+        C-->>B: 302 → set signed session cookie {user, role}
+    end
+
+    Note over U,C: 2 — Every subsequent request
+    B->>C: GET /dashboard | /approvals | /policy | /sequence | /audit
+    C->>C: login_required — session has user?
+    alt no session
+        C-->>B: 302 → /login
+    else authenticated
+        C-->>B: 200 — rendered view (read-only observation)
+    end
+
+    Note over U,Q: 3 — Acting on a gate (role-gated)
+    B->>C: POST /approvals/{id}/approve
+    C->>C: requires_role(operator)
+    alt viewer
+        C-->>B: 403 — read-only role
+    else operator
+        C->>Q: resolve(approval_id, approved, operator)
+        Q-->>C: PendingApproval(status)
+        Note right of Q: unblocks the monitor's<br/>await_resolution; writes<br/>ApprovalResolutionEvent
+        C-->>B: 302 → /approvals (flash result)
+    end
+
+    Note over U,C: 4 — Logout
+    B->>C: GET /logout
+    C-->>B: 302 → /login (session cleared)

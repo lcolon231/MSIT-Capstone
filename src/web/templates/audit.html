@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Audit log{% endblock %}
+{% block body %}
+<h1>Audit log</h1>
+<p class="muted" style="font-size:.88rem;">Append-only JSONL, newest first. Arguments and captured
+  bindings are hashed, never stored in plaintext.</p>
+
+<div class="card">
+  {% if events %}
+  <table>
+    <tr><th>Type</th><th>Detail</th><th>Time</th></tr>
+    {% for e in events %}
+    <tr>
+      <td class="mono">{{ e.type.value }}</td>
+      <td class="mono muted">
+        {%- if e.type.value == 'decision' -%}
+          {{ e.tool }} → <span class="tag {{ e.verdict.value }}">{{ e.verdict.value }}</span> ({{ e.rule_id }})
+        {%- elif e.type.value == 'approval_resolution' -%}
+          {{ e.tool }} [{{ e.gate_class.value }}] → {{ e.resolution }}{% if e.operator %} by {{ e.operator }}{% endif %}
+        {%- elif e.type.value == 'chain_progress' -%}
+          {{ e.chain }}: {{ e.from_node }} → {{ e.to_node }}
+        {%- elif e.type.value == 'session_lifecycle' -%}
+          session {{ e.action }}
+        {%- elif e.type.value == 'eviction' -%}
+          evicted {{ e.chain }} @ {{ e.evicted_node }}
+        {%- endif -%}
+      </td>
+      <td class="mono muted">{{ '%.0f'|format(e.timestamp) }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="empty">The audit log is empty.</p>
+  {% endif %}
+</div>
+{% endblock %}

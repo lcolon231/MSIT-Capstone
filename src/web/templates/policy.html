@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Policy{% endblock %}
+{% block body %}
+<h1>Policy</h1>
+
+<h2>Per-call rules</h2>
+<div class="card">
+  {% if policy.rules %}
+  <table>
+    <tr><th>Rule id</th><th>Tool</th><th>Trigger</th><th>Enforce</th><th>Checks</th></tr>
+    {% for r in policy.rules %}
+    <tr>
+      <td class="mono">{{ r.rule_id }}</td>
+      <td class="mono">{{ r.tool }}</td>
+      <td class="mono muted">{{ r.trigger.value }}</td>
+      <td><span class="tag {{ r.enforce.value }}">{{ r.enforce.value }}</span></td>
+      <td class="mono muted">{{ r.checks | map(attribute='predicate') | join(', ') or '—' }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="empty">No per-call rules loaded.</p>
+  {% endif %}
+</div>
+
+<h2>Modeled kill chains</h2>
+<div class="card">
+  {% if policy.sequence.chains %}
+  {% for chain in policy.sequence.chains %}
+  <p><b class="mono">{{ chain.name }}</b> <span class="muted">({{ chain.domain }})</span></p>
+  <table>
+    <tr><th>Trigger</th><th>From</th><th>To</th><th>Enforce</th><th>Rule id</th></tr>
+    {% for s in chain.steps %}
+    <tr>
+      <td class="mono">{{ s.trigger }}</td>
+      <td class="mono muted">{{ s.from_node or 'S0' }}</td>
+      <td class="mono">{{ s.to_node }}</td>
+      <td>{% if s.enforce %}<span class="tag {{ s.enforce.value }}">{{ s.enforce.value }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="mono muted">{{ s.rule_id or '—' }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endfor %}
+  {% else %}
+  <p class="empty">No modeled chains loaded.</p>
+  {% endif %}
+</div>
+
+{% if source %}
+<h2>Source (YAML)</h2>
+<div class="card"><pre class="yaml">{{ source }}</pre></div>
+{% endif %}
+{% endblock %}

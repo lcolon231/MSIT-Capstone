@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Sequence state{% endblock %}
+{% block body %}
+<h1>Sequence-state inspector</h1>
+<p class="muted" style="font-size:.88rem;">Which modeled kill chains are part-way advanced, per subject
+  <span class="mono">(session, principal)</span>. Bindings are shown by name only — the captured
+  values are stored as digests.</p>
+
+<div class="card">
+  {% if rows %}
+  <table>
+    <tr><th>Principal</th><th>Session</th><th>Chain</th><th>Node</th><th>Bindings</th><th>Updated</th></tr>
+    {% for row in rows %}
+    <tr>
+      <td class="mono">{{ row.principal }}</td>
+      <td class="mono muted">{{ row.session_id[:12] }}…</td>
+      <td class="mono">{{ row.chain }}</td>
+      <td><span class="tag gate">{{ row.node }}</span></td>
+      <td class="mono muted">{{ row.bindings }}</td>
+      <td class="mono muted">{{ '%.0f'|format(row.updated_at) }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="empty">No chains are part-way advanced right now.</p>
+  {% endif %}
+</div>
+{% endblock %}

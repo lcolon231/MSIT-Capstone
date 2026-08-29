@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Approvals{% endblock %}
+{% block body %}
+<h1>Pending approvals</h1>
+{% if not can_act %}
+<div class="flash error">You are signed in as a <b>viewer</b> — approvals are read-only for your role.</div>
+{% endif %}
+
+<div class="card">
+  {% if pending %}
+  <table>
+    <tr><th>Tool</th><th>Gate class</th><th>Arg digest</th>{% if can_act %}<th>Action</th>{% endif %}</tr>
+    {% for p in pending %}
+    <tr>
+      <td class="mono">{{ p.tool }}</td>
+      <td><span class="tag gate">{{ p.gate_class.value }}</span></td>
+      <td class="mono muted">{{ p.arg_digest[:16] }}…</td>
+      {% if can_act %}
+      <td>
+        <form class="inline" method="post"
+              action="{{ url_for('console.resolve_approval', approval_id=p.approval_id, decision='approve') }}">
+          <button class="approve" type="submit">Approve</button>
+        </form>
+        <form class="inline" method="post"
+              action="{{ url_for('console.resolve_approval', approval_id=p.approval_id, decision='deny') }}">
+          <button class="deny" type="submit">Deny</button>
+        </form>
+      </td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="empty">No approvals awaiting a decision.</p>
+  {% endif %}
+</div>
+<p class="muted" style="font-size:.82rem;">Arguments are shown only as a SHA-256 digest — never plaintext.</p>
+{% endblock %}
