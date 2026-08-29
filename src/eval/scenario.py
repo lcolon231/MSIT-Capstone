@@ -1,16 +1,22 @@
-"""Scenario schema (D13) — design-only stub.
+"""Scenario schema + result (D13, D6) — the evaluation harness's data model.
 
 Red-team scenarios are labelled with a **MITRE ATLAS technique** (primary, exactly one) and,
 when adapted from STAC, an optional **Agent-SafetyBench failure mode** (secondary). Each scenario
-also declares a deterministic post-condition checker (D6) — no LLM judge. Authoring the suite is
-Phase 5; this file fixes only the shape D13 requires.
+carries a benign/attack tag and a **deterministic post-condition checker** (D6) — a pure function
+of the recorded run (audit log + tool-state snapshot), never an LLM judge. The suite itself is
+issue #18; the runner + metrics are #19. This file fixes the format and the result the checker
+reads, so the same recorded run always yields the same verdict.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable
+from pathlib import Path
+from typing import Any, Callable, Mapping
+
+from src.audit.events import AuditEvent
+from src.audit.replay import replay
 
 
 class AtlasTechnique(Enum):
@@ -32,15 +38,27 @@ class ScenarioLabels:
 
 @dataclass(frozen=True)
 class ScenarioResult:
-    """What the deterministic checker inspects after a run: recorded tool state and the audit log
-    for the run. Concrete shape is finalized alongside the Phase 5 runner."""
+    """The recorded outcome of one scenario run, as the deterministic checker sees it: the
+    replayed audit events plus a snapshot of the mock tool state (e.g. what was exported). It
+    holds already-materialized data — no file handles, no clock — so a checker over it is pure."""
 
     scenario_id: str
-    audit_log_path: str
+    events: tuple[AuditEvent, ...] = ()
+    tool_state: Mapping[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_audit_log(
+        cls, scenario_id: str, audit_log_path: str | Path, tool_state: Mapping[str, Any] | None = None
+    ) -> "ScenarioResult":
+        """Build a result by replaying the run's audit log once and capturing a tool-state
+        snapshot. The replay/IO happens here; checkers stay pure over the materialized result."""
+        events = tuple(replay(Path(audit_log_path)))
+        return cls(scenario_id=scenario_id, events=events, tool_state=dict(tool_state or {}))
 
 
-# A deterministic post-condition checker (D6): inspects recorded state / audit log and returns an
-# escape / no-escape verdict. Pure and LLM-free (spec.md §10, qa-redteam-plan.md T6.2).
+# A deterministic post-condition checker (D6): a pure function of the recorded ScenarioResult that
+# returns True iff the scenario's post-condition holds (for an attack: the harmful effect
+# escaped). No LLM, no I/O, no clock (spec.md §10, qa-redteam-plan.md T6.2).
 PostConditionChecker = Callable[[ScenarioResult], bool]
 
 
