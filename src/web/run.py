@@ -1,6 +1,6 @@
 """Launch the operator console for a local demo / screenshots (issue #14).
 
-Wires a console over a monitor's live objects (banking policy), seeds an operator and a viewer
+Wires a console over a monitor's live objects (RMM policy), seeds an operator and a viewer
 account, and pre-populates one gated approval plus a little audit history so the dashboard,
 approvals, and audit views have content to show.
 
@@ -30,26 +30,26 @@ def _demo_call(tool: str, **args: object) -> ToolCall:
         tool=tool,
         args=args,
         session_id=SessionId("s-demo"),
-        principal=Principal("acct-1"),
+        principal=Principal("client-primary"),
         call_id=CallId("demo"),
         timestamp=0.0,
     )
 
 
 def build_context() -> tuple[ConsoleContext, UserStore]:
-    policy_path = Path(os.environ.get("MONITOR_POLICY", "policies/banking.yaml"))
+    policy_path = Path(os.environ.get("MONITOR_POLICY", "policies/rmm.yaml"))
     audit_path = Path(os.environ.get("MONITOR_AUDIT", "results/console-demo-audit.jsonl"))
     audit = AuditWriter(audit_path)
     sessions = SessionRegistry(audit, RetentionConfig())
     approvals = ApprovalQueue()
 
     # A little history so the dashboard is not empty on first load.
-    audit.append(decision_event(_demo_call("get_balance"), Decision(Verdict.ALLOW, "banking.get_balance.allow", "matched rule")))
-    transfer = _demo_call("transfer_funds", to="acme-1", amount=500)
-    audit.append(decision_event(transfer, Decision(Verdict.GATE, "banking.transfer_funds.gate", "matched rule")))
-    gate_class = classify_gate(transfer)
+    audit.append(decision_event(_demo_call("list_endpoints"), Decision(Verdict.ALLOW, "rmm.list_endpoints.allow", "matched rule")))
+    export = _demo_call("export_records", to="attacker-dropbox", count=500)
+    audit.append(decision_event(export, Decision(Verdict.GATE, "rmm.export_records.gate", "matched rule")))
+    gate_class = classify_gate(export)
     if gate_class is not None:
-        approvals.enqueue(transfer, gate_class)  # one pending approval to act on
+        approvals.enqueue(export, gate_class)  # one pending approval to act on
 
     context = ConsoleContext(
         approvals=approvals,

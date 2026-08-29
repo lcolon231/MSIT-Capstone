@@ -39,7 +39,7 @@ def classify(call: ToolCall, state: SequenceState, policy: Policy) -> Decision |
     """Return a Decision (DENY or GATE) iff `call` reaches a blocking/escalating transition of
     some modeled chain for `call`'s subject; otherwise None (let per-call policy decide).
 
-    DENY  = full kill chain (recon prefix + add new payee + transfer to THAT payee).
+    DENY  = full kill chain (recon prefix + register a new destination + export to THAT destination).
     GATE  = a modeled escalation whose step carries `enforce: GATE`.
     Pure; no I/O, no mutation (docs/design/sequence-engine.md §8). Fail-closed: a step whose
     checks raise or whose binding is absent does not fire, so it can only ever *tighten*.
@@ -111,7 +111,7 @@ def _forward_step(chain: ChainSpec, current_node: str | None, call: ToolCall) ->
     A step matches when its trigger and per-call checks hold AND either:
       * `from_node == current_node`  — a normal forward transition, or
       * `to_node   == current_node`  — an idempotent replay of the step that reached this node
-        (a duplicate `add_payee` in S3 re-binds to the latest digest without an off-by-one
+        (a duplicate `register_destination` in S3 re-binds to the latest digest without an off-by-one
         advance; design §7). Forward transitions are preferred over idempotent replays.
     """
     idempotent: ChainStep | None = None
@@ -183,10 +183,10 @@ def _blocking_checks_pass(checks: Sequence[Check], call: ToolCall, bindings: Map
 
 
 def _sequence_check(check: Check, call: ToolCall, bindings: Mapping[str, Any]) -> bool:
-    """One binding-aware sequence check. Currently supports `target_is_bound_payee`: the named
+    """One binding-aware sequence check. Currently supports `target_is_bound_value`: the named
     argument's canonical digest must equal a previously captured binding (design §5)."""
     try:
-        if check.predicate == "target_is_bound_payee":
+        if check.predicate == "target_is_bound_value":
             bound = bindings.get(check.params["binding"])
             value = call.args.get(check.params["argument"])
             if bound is None or value is None:
@@ -200,7 +200,7 @@ def _sequence_check(check: Check, call: ToolCall, bindings: Mapping[str, Any]) -
 
 
 def _resolve_source(source: str, call: ToolCall) -> Any:
-    """Resolve a bind source expression (e.g. ``"args.payee_id"``) against the enriched call.
+    """Resolve a bind source expression (e.g. ``"args.destination"``) against the enriched call.
     Only the monitor-owned ``args.<name>`` form is supported; anything else binds nothing."""
     prefix = "args."
     if source.startswith(prefix):
@@ -210,6 +210,6 @@ def _resolve_source(source: str, call: ToolCall) -> Any:
 
 def _canonical_digest(value: Any) -> str:
     """Canonical SHA-256 over one value (design §4). Deterministic and plaintext-free, so the
-    same payee compared at add-time and transfer-time yields identical digests."""
+    same destination compared at register-time and export-time yields identical digests."""
     canonical = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

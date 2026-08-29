@@ -1,6 +1,6 @@
 """Fail-closed YAML policy loader (issue #6 / T2.3).
 
-Covers: a real policies/banking.yaml loads and validates; unknown fields, invalid enums,
+Covers: a real policies/rmm.yaml loads and validates; unknown fields, invalid enums,
 malformed YAML, missing files, and unregistered predicate names all raise PolicyError.
 """
 
@@ -16,7 +16,7 @@ from src.policy.loader import PolicyError, load_policy, validate_policy
 from src.transport.contract import Verdict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-BANKING = REPO_ROOT / "policies" / "banking.yaml"
+RMM = REPO_ROOT / "policies" / "rmm.yaml"
 
 
 def make_call(tool: str) -> ToolCall:
@@ -24,27 +24,27 @@ def make_call(tool: str) -> ToolCall:
         tool=tool,
         args={},
         session_id=SessionId("s1"),
-        principal=Principal("acct-1"),
+        principal=Principal("client-1"),
         call_id=CallId("c1"),
         timestamp=0.0,
     )
 
 
-def test_banking_policy_loads_and_validates() -> None:
-    policy = load_policy(BANKING)
+def test_rmm_policy_loads_and_validates() -> None:
+    policy = load_policy(RMM)
     tools = {r.tool for r in policy.rules}
-    assert {"get_balance", "list_payees", "add_payee", "transfer_funds"} <= tools
+    assert {"list_endpoints", "list_shares", "register_destination", "export_records"} <= tools
 
 
-def test_banking_policy_allows_read_and_gates_transfer() -> None:
-    policy = load_policy(BANKING)
+def test_rmm_policy_allows_read_and_gates_transfer() -> None:
+    policy = load_policy(RMM)
     state = SequenceState()
-    assert evaluate(make_call("get_balance"), policy, state).verdict is Verdict.ALLOW
-    assert evaluate(make_call("transfer_funds"), policy, state).verdict is Verdict.GATE
+    assert evaluate(make_call("list_endpoints"), policy, state).verdict is Verdict.ALLOW
+    assert evaluate(make_call("export_records"), policy, state).verdict is Verdict.GATE
 
 
 def test_unmatched_tool_falls_through_to_default_deny() -> None:
-    policy = load_policy(BANKING)
+    policy = load_policy(RMM)
     d = evaluate(make_call("wire_to_offshore"), policy, SequenceState())
     assert d.verdict is Verdict.DENY
     assert d.rule_id == "default"

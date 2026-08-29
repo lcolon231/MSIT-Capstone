@@ -186,8 +186,10 @@ def is_destructive_cmd(call: ToolCall, params: Mapping[str, Any]) -> bool:
     return any(pattern.search(canonical) for pattern in _DESTRUCTIVE_PATTERNS)
 
 
-@register("target_is_bound_payee")
-def target_is_bound_payee(call: ToolCall, params: Mapping[str, Any]) -> bool:
-    """Sequence predicate: True iff `transfer_funds` targets the payee bound at add_payee
-    (the terminal kill-chain transition, docs/design/sequence-engine.md §5)."""
+@register("target_is_bound_value")
+def target_is_bound_value(call: ToolCall, params: Mapping[str, Any]) -> bool:
+    """Sequence predicate: True iff a named argument's canonical digest equals a value bound
+    earlier in the chain (e.g. `export_records.to` == the just-registered destination — the
+    terminal kill-chain transition, docs/design/sequence-engine.md §5). The binding-aware
+    evaluation lives in the sequence engine, which supplies the captured digests."""
     raise NotImplementedError

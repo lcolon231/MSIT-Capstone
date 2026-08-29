@@ -30,11 +30,11 @@ def test_decision_event_carries_verdict_and_rule_id() -> None:
     call = make_call()
     from src.monitor.types import Decision
 
-    decision = Decision(Verdict.GATE, "banking.transfer_funds.gate", "x", GateClass.FUND_TRANSFER)
+    decision = Decision(Verdict.GATE, "rmm.export_records.gate", "x", GateClass.DATA_EXPORT)
     event = decision_event(call, decision)
     assert event.verdict is Verdict.GATE
-    assert event.rule_id == "banking.transfer_funds.gate"
-    assert event.gate_class is GateClass.FUND_TRANSFER
+    assert event.rule_id == "rmm.export_records.gate"
+    assert event.gate_class is GateClass.DATA_EXPORT
 
 
 def test_writer_appends_without_rewriting(tmp_path: Path) -> None:
