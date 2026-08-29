@@ -213,45 +213,56 @@ independence claim clean — the automaton is a strictly additive containment la
 
 ---
 
-## 9. How this maps to the policy schema (D2, proposal — needs sign-off)
+## 9. How this maps to the policy schema (D2, implemented in issues #10/#12)
 
 Modeled chains are declared as **data**, not code, following D2's `trigger/check/enforce` structure.
-Proposed `SequenceConfig` shape follows below. Under D17, `interface-contracts.md` treats the loaded
-`Policy` as an opaque validated value; the existing Python skeleton is deferred to implementation.
+The committed `SequenceConfig` shape follows below. Under D17, `interface-contracts.md` treats the
+loaded `Policy` as an opaque validated value.
 
 ```yaml
-sequences:
-  - name: recon_register_exfil
-    domain: rmm
-    steps:                       # ordered; each references a per-call trigger
-      - trigger: list_endpoints
-        to: S1_ENDPOINTS
-      - trigger: list_shares
-        from: S1_ENDPOINTS
-        to: S2_SHARES
-      - trigger: register_destination
-        from: S2_SHARES
-        to: S3_DESTINATION_ADDED
-        bind: {registered_destination: "args.destination"}
-      - trigger: export_records
-        from: S3_DESTINATION_ADDED
-        check:
-          - predicate: target_is_bound_value
-            params: {argument: "to", binding: "registered_destination"}
-        enforce: DENY
-        rule_id: seq.recon_register_exfil.terminal
+sequence:
+  chains:
+    - name: recon_register_exfil
+      domain: rmm
+      steps:                       # ordered; each references a per-call trigger
+        - trigger: list_endpoints
+          to: S1_ENDPOINTS
+        - trigger: list_shares
+          from: S1_ENDPOINTS
+          to: S2_SHARES
+        - trigger: register_destination
+          from: S2_SHARES
+          to: S3_DESTINATION_ADDED
+          bind: {registered_destination: "args.destination"}
+        - trigger: export_records
+          from: S3_DESTINATION_ADDED
+          to: S4_BLOCKED
+          checks:
+            - predicate: target_is_bound_value
+              params: {argument: "to", binding: "registered_destination"}
+          enforce: deny
+          rule_id: seq.recon_register_exfil.terminal
 ```
 
-`check` entries reference **named, vetted predicate functions** (the immutable runtime registry in
+`checks` entries reference **named, vetted predicate functions** (the immutable runtime registry in
 `src/policy/predicates.py`), never inline code — policy stays inspectable data (D2). Sequence checks
-receive monitor-owned `PredicateContext.binding_digests`; that context is not YAML and is not
-agent-authored. The loader rejects an unregistered predicate (fail-closed at load time).
-If the terminal predicate does not match, the sequence layer returns `None`; the canonical chain
-does not declare a negated duplicate gate rule. D5's per-call data-export rule supplies the
+are evaluated by the sequence engine against monitor-owned binding digests; those digests are not
+YAML and are not agent-authored. The loader rejects an unregistered predicate (fail-closed at load
+time). If the terminal predicate does not match, the sequence layer returns `None`; the canonical
+chain does not declare a negated duplicate gate rule. D5's per-call data-export rule supplies the
 traceable `GATE` decision (D16).
 
-> The concrete field names above are a **proposal**. Per the working agreement, the policy YAML
-> schema is an "ask first" surface; this section is for review, not a committed schema.
+Validation is fail-closed at load time. Beyond the unknown-field and unregistered-predicate
+rejections that apply to every rule, the loader rejects a `sequence:` block that declares:
+
+1. duplicate chain names within one policy;
+2. a first step carrying `from` (the initial transition leaves the implicit start node);
+3. a disconnected transition — a step whose `from` is not the previous step's `to`;
+4. a `bind` source that is not of the form `args.<name>`;
+5. `enforce` without `rule_id`, or `rule_id` without `enforce`;
+6. a sequence-level `enforce: allow` — the sequence layer may only tighten (§8);
+7. a non-list value where a list is required (`chains`, `steps`, `checks`);
+8. an empty or non-string `name`, `domain`, `trigger`, `to`, or `from`.
 
 ---
 
