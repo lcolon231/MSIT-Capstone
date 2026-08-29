@@ -32,7 +32,10 @@ def build_service(tmp_path: Path, principal: str = "acct-1") -> tuple[MonitorSer
     register_banking(registry, state)
     audit = AuditWriter(tmp_path / "audit.jsonl")
     sessions = SessionRegistry(audit, RetentionConfig())
-    service = MonitorService(load_policy(BANKING), registry, audit, sessions, ApprovalQueue())
+    # Tiny approval timeout so an un-resolved GATE fails closed fast instead of blocking a test.
+    service = MonitorService(
+        load_policy(BANKING), registry, audit, sessions, ApprovalQueue(), approval_timeout_s=0.05
+    )
     return service, state, service.open_session(principal)
 
 
@@ -60,10 +63,11 @@ def test_allowed_add_payee_mutates_in_process_state(tmp_path: Path) -> None:
 # --- DENY / GATE never execute ------------------------------------------------------------
 
 
-def test_gate_call_does_not_execute(tmp_path: Path) -> None:
+def test_unapproved_gate_does_not_execute(tmp_path: Path) -> None:
     service, state, session = build_service(tmp_path)
+    # No operator resolves it -> times out -> DENIED, but the decision stays GATE.
     result = service.handle(propose("transfer_funds", to="acme", amount=200), session)
-    assert result.status is ResultStatus.GATED_PENDING
+    assert result.status is ResultStatus.DENIED
     assert result.decision.verdict is Verdict.GATE
     assert state.balances["acct-1"] == 1000  # not debited — the tool never ran
 
