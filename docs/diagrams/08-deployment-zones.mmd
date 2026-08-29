@@ -1,0 +1,56 @@
+---
+title: "Figure 8 — Deployment & network zones: agent, monitor, operator"
+---
+flowchart LR
+    subgraph UZ["Untrusted zone — agent process"]
+        direction TB
+        LLM["<b>Model client (D4)</b><br/>Ollama · Llama-3.1-8B<br/><i>the ONLY LLM in the system</i>"]
+        LOOP["<b>Agent loop</b><br/>propose → observe → repeat<br/><i>sees only redacted ToolResult</i>"]
+        TXC["<b>Transport client</b><br/><i>imports only contract/client</i>"]
+        LLM --> LOOP --> TXC
+    end
+
+    LAUNCH["<b>Trusted launcher (D14)</b><br/>python -m src.launcher<br/><i>the only component that composes<br/>agent + monitor</i>"]
+
+    subgraph TZ["Trusted zone — monitor process (owns tools, policy, state)"]
+        direction TB
+        SVC["<b>MonitorService.handle</b><br/><i>complete mediation — only path to a tool</i>"]
+        EVAL["<b>evaluate</b><br/>sequence engine + per-call policy<br/><i>pure, fail-closed</i>"]
+        GATE["<b>Approval queue</b><br/><i>blocks on human for 4 D5 classes</i>"]
+        TOOLS["<b>Tool registry</b><br/>banking · files · network · credentials<br/><i>in-process mocks, no egress</i>"]
+        STATE["<b>Sequence state + SessionRegistry</b>"]
+        SVC --> EVAL
+        SVC --> GATE
+        SVC --> TOOLS
+        SVC --> STATE
+    end
+
+    LOG[("<b>Audit log</b><br/>append-only JSONL<br/><i>args + bindings hashed</i>")]
+
+    subgraph OZ["Operator zone — console"]
+        direction TB
+        BROWSER["<b>Operator / viewer browser</b>"]
+        CONSOLE["<b>Flask console (D5)</b><br/>login · RBAC · approvals<br/><i>observe + resolve only</i>"]
+        BROWSER <--> CONSOLE
+    end
+
+    TXC == "loopback HTTP (D11 primary)  /  in-process (scope cut)" ==> SVC
+    LAUNCH -. "wires (trusted, out-of-band)" .-> TXC
+    LAUNCH -. wires .-> SVC
+
+    SVC ==> LOG
+    GATE ==> LOG
+    CONSOLE -->|"read decisions / state"| LOG
+    CONSOLE -->|"approve / deny by approval id"| GATE
+
+    classDef untrusted fill:#f8d7da,stroke:#a94442,color:#7a2a2f
+    classDef trusted fill:#dce6f1,stroke:#2e5c8a,color:#1f3864
+    classDef ops fill:#e8f0e3,stroke:#4a7c3f,color:#254a1d
+    classDef store fill:#ede7f6,stroke:#5e35b1,color:#311b92
+    classDef launch fill:#fff3cd,stroke:#b58105,color:#6b4c00
+
+    class LLM,LOOP,TXC untrusted
+    class SVC,EVAL,GATE,TOOLS,STATE trusted
+    class BROWSER,CONSOLE ops
+    class LOG store
+    class LAUNCH launch

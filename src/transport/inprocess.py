@@ -16,13 +16,17 @@ from src.transport.contract import SessionHandle, ToolCallProposal, ToolResult
 
 
 class InProcessTransport:
-    """A `Transport` that forwards straight to the monitor in the same process."""
+    """A `Transport` that forwards straight to the monitor in the same process.
+
+    Source-level isolation only: the agent holds this typed as `Transport` and can only
+    `open_session` / `dispatch`. Both halves share an address space, so this is the documented
+    scope cut — the tamper-resistance guarantee belongs to loopback (see module docstring)."""
 
     def __init__(self, service: MonitorService) -> None:
-        raise NotImplementedError
+        self._service = service
 
     def open_session(self) -> SessionHandle:
-        raise NotImplementedError
+        return self._service.open_session()
 
     def dispatch(self, proposal: ToolCallProposal, session: SessionHandle) -> ToolResult:
-        raise NotImplementedError
+        return self._service.handle(proposal, session)
