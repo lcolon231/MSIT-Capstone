@@ -71,7 +71,7 @@ actions.
 Existing controls do not cover this. Content moderation judges text, not actions. Per-call
 allowlists judge one call at a time. **A sequence of individually-permitted calls can be
 collectively harmful** — the canonical case being
-`get_balance → list_payees → add_payee → transfer_funds`, where every step is legitimate and
+`list_endpoints → list_shares → register_destination → export_records`, where every step is legitimate and
 only the composition is fraud. STAC (AWS AI Labs, 483 verified cases) measures this class of
 attack succeeding against frontier agents **91.2%** of the time.
 
@@ -141,7 +141,7 @@ src/
   monitor/gate.py     → approval gate + pending-approval queue
   policy/       → YAML loader + schema validation
   agent/        → agent loop, Ollama client (pluggable), mediated dispatch
-  tools/        → mock tools over in-process state (banking, files, network, creds)
+  tools/        → mock tools over in-process state (RMM, files, network, creds)
   audit/        → append-only JSONL writer + replay
   eval/         → red-team runner, metrics
   web/          → Flask console: login, dashboard, approvals, policy view
@@ -239,10 +239,10 @@ def evaluate(call: ToolCall, policy: Policy, state: SequenceState) -> Decision:
 
 ## 11. Scope-cut order if time runs short
 
-Cut from the top. **Never** cut the fail-closed core, the banking chain demo, the console
+Cut from the top. **Never** cut the fail-closed core, the RMM chain demo, the console
 login page, or the report's required headings.
-1. Extra mock-tool domains — shrink from four to **banking + files**
-2. Reduce chained scenarios but keep the canonical banking chain
+1. Extra mock-tool domains — shrink from four to **RMM + files**
+2. Reduce chained scenarios but keep the canonical RMM chain
 3. Drop the Qwen2.5 swap-in experiment
 4. Console reduced to login + decision feed + approvals (drop policy viewer / state inspector)
 5. Last resort: approval gate logs what it *would* gate instead of being interactive —

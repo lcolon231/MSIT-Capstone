@@ -103,7 +103,7 @@ smear as evasions the design must survive. Those tests cannot be written until t
 
 **The questions to answer, each with a report sentence attached:**
 - **Scope key** — is sequence state keyed to the agent session, the task, the operator, or the
-  target account? The banking chain smears across sessions if the key is too narrow.
+  target destination? The RMM chain smears across sessions if the key is too narrow.
 - **Lifetime** — does state expire on a timer, on task completion, or never within a run?
 - **Reset authority** — can *anything the agent does* clear state? Per `spec.md` §10 Boundaries
   the answer must be no, but that has to be enforced, not assumed.

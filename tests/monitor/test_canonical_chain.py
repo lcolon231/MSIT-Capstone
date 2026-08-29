@@ -77,7 +77,7 @@ def test_full_chain_blocked_at_transfer_through_service(tmp_path: Path) -> None:
 def test_sequence_deny_wins_over_the_per_call_gate(tmp_path: Path) -> None:
     policy = load_policy(RMM)
 
-    # Per-call layer ALONE would only GATE the transfer (D5 fund-transfer class).
+    # Per-call layer ALONE would only GATE the transfer (D5 data-export class).
     per_call = policy.match(make_call("export_records", to="acme-1"))
     assert per_call is not None and per_call.enforce is Verdict.GATE
 

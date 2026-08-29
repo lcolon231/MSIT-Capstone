@@ -194,7 +194,7 @@ price of a deliberate choice, not an implementation defect.
 
 - **R1 — Low-and-slow chains (from D12.4).** A chain paced so its recon prefix falls *outside*
   the audit-log lookback window (default 24 h) presents a fresh session whose replay-seeded
-  state has forgotten the prefix, so the terminal `transfer_funds` is judged only per-call. The
+  state has forgotten the prefix, so the terminal `export_records` is judged only per-call. The
   window is a tunable, logged detection horizon, not a guarantee; snapshotting is the named
   future work that lengthens it without unbounded replay.
 - **R2 — Novel unmodelled chains (from D1).** A bounded automaton recognises exactly the chains
@@ -229,7 +229,7 @@ The threat model is validated by code, not asserted. As of the completed Phase 2
 
 | Goal | Requirement | Status | Evidence |
 |---|---|---|---|
-| G1 Mediation | SEC-01 | Design complete; dispatch wiring Phase 3–4 | `evaluate` is the sole verdict path; mediated dispatch lands with the banking domain (#11) |
+| G1 Mediation | SEC-01 | Design complete; dispatch wiring Phase 3–4 | `evaluate` is the sole verdict path; mediated dispatch lands with the RMM domain (#11) |
 | G2 Fail-closed | SEC-02 | **Implemented, test-proven** | Default DENY on no match; unknown tool and empty policy deny all |
 | G3 Independence | SEC-06 | **Implemented, test-proven** | Pure `evaluate` reads only call/policy/state; verdict cannot be flipped by agent text |
 | G4 Sequence awareness | SEC-04 | Designed (D1); Phase 3 | `classify`/`advance` land with the kill-chain automaton (#10–#12) |

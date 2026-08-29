@@ -40,7 +40,7 @@ Corollary: **screenshot every feature the first time it works.** Cheap now, expe
 - **D2** policy = narrow declarative YAML, trigger/check/enforce (AgentSpec structure)
 - **D3** eval = custom tool suite + STAC-adapted chains — **now scoped to 6 attack / 4 benign**
 - **D4** model = Ollama + Llama 3.1 8B behind a pluggable interface; stub model in CI
-- **D5** gate = four classes: file delete, network send, fund transfer, credential access
+- **D5** gate = four classes: file delete, network send, data export, credential access
 - **D6** escape scoring = per-scenario deterministic checker, no LLM judge
 - **D7** positioning = checkpoint enforcement vs trajectory reasoning
 - **D8** enforcement subset = DENY + GATE only (no agent-modifying actions)
@@ -51,7 +51,7 @@ Corollary: **screenshot every feature the first time it works.** Cheap now, expe
 - **D13** labels = exactly one MITRE ATLAS primary + optional Agent-SafetyBench secondary
 - **D14** session bootstrap = trusted launcher injects a session-bound, dispatch-only transport
 - **D15** lifecycle = session end/idle expiry clears live state, not within-lookback audit history
-- **D16** canonical near miss = sequence returns `None`; ordinary D5 fund-transfer rule gates
+- **D16** canonical near miss = sequence returns `None`; ordinary D5 data-export rule gates
 - **D17** design interface = normative documentation contract; Python skeleton deferred to implementation
 
 ## Phases
@@ -85,9 +85,9 @@ because the requirements chapter defines what Phases 2–5 actually build.
 
 ### Phase 3 — Sequence engine, the hero result (~1.5 weeks)
 
-- **Build:** kill-chain state machine (named chains, session state, transitions); banking mock
+- **Build:** kill-chain state machine (named chains, session state, transitions); RMM mock
   domain; mediated dispatch; canonical chain
-  `get_balance → list_payees → add_payee → transfer_funds` blocked at sequence level while each
+  `list_endpoints → list_shares → register_destination → export_records` blocked at sequence level while each
   call passes per-call checks; evasion cases (interleaving, reorder, session reset, duplicates)
 - **Report:** Implementation §2 continued; the sequence section of Design
 - **Diagrams:** #4 sequence state machine — the hero diagram, also the poster centrepiece
@@ -152,7 +152,7 @@ Phase 1 (case study, report)   ── independent, do first
         │
 Phase 2 core types → policy loader → verdict engine → matchers
         ├── audit log (parallel-safe)
-        └── Phase 3 sequence machine → banking domain → canonical chain
+        └── Phase 3 sequence machine → RMM domain → canonical chain
                     │
             Phase 4 gate → console (login, feed, approvals) → agent loop → extra domains
                     │
@@ -207,10 +207,10 @@ but do not leave the video recording to Dec 3.
 | **Missing required headings** | 10–20% penalty | Heading checklist in `todo.md`; verify in Phase 7 |
 | **Presentation (15%) forgotten** | Course cannot be completed without it | On the schedule above; slides derive from report chapters |
 | Console scope creep | Med | Flask + Jinja only. No SPA, no build step, no component library |
-| Sequence engine over-blocks | Med | False-block guard test; legit payee-add-then-transfer must pass |
+| Sequence engine over-blocks | Med | False-block guard test; legit register-then-export must pass |
 | Live Ollama flakiness | Med | Stub model in CI; live runs manual on the build box |
 | Four deliverables due Nov 28 – Dec 3 | High | Poster + slides derive from finished report chapters; record the video by Dec 1, not Dec 3 |
-| Scenario authoring balloons | Low now | Capped at 6+4; STAC repo has reusable Banking chains |
+| Scenario authoring balloons | Low now | Capped at 6+4; STAC repo has reusable RMM chains |
 
 ## What changed from the previous plan
 

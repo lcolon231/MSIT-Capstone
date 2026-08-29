@@ -1,6 +1,6 @@
 """Approval gate (D5) — human-in-the-loop for four irreversible classes, fail-closed.
 
-The gate fires for exactly: file delete, network send, fund transfer, credential access. It
+The gate fires for exactly: file delete, network send, data export, credential access. It
 routes to a human via the operator console. No approval / timeout → DENY (D5, spec.md #5).
 
 Tamper-resistance: the `ApprovalQueue` accepts operator decisions ONLY by monitor-issued

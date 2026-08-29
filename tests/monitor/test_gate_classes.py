@@ -1,6 +1,6 @@
 """Every D5 gate class routes to GATE end-to-end — issue #13 criterion 1.
 
-The four irreversible classes — fund-transfer, file-delete, network-send, credential-access —
+The four irreversible classes — data-export, file-delete, network-send, credential-access —
 each reach the approval gate through the full mediated flow: an un-resolved gate times out to
 DENIED (tool never runs) while the decision stays GATE and a class-tagged ApprovalResolutionEvent
 is written; an operator approval lets the tool execute.

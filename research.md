@@ -214,7 +214,7 @@ plus domain-specific ones (`stop`, `follow_dist(10)` …). The intro summarises 
   risky categories** (reverse shells, path traversal, eval injection, posting sensitive files
   online). Good problem-statement evidence.
 - The worked example gates a **financial transfer** on a recipient predicate via human
-  inspection — near-identical to this project's banking domain. Precedent for D5.
+  inspection — near-identical to this project's RMM export domain. Precedent for D5.
 
 ---
 
@@ -344,12 +344,12 @@ mapping explicitly rather than inventing new names.
 #### Environments — directly reusable
 
 4 complex environments from **SHADE-Arena** (Kutasov et al. 2025), which *extends AgentDojo*:
-**Banking**, Travel, Workspace, Spam Filter Updating — plus 62 simpler ones sampled from
+**RMM**, Travel, Workspace, Spam Filter Updating — plus 62 simpler ones sampled from
 Agent-SafetyBench. All implemented in Python with distinct tool sets. Also a real-tool MCP
 benchmark (filesystem + Playwright servers, OpenAgentSafety tasks) where the attacker is
 black-box: full pipeline **35.5% ASR vs 12.5%** without pre-generated chains.
 
-→ Their **Banking** environment and the released chains are the closest available match to
+→ Their **RMM** environment and the released chains are the closest available match to
 this project's canonical fraud chain. Check the repo before authoring scenarios from scratch
 (D3, Task 14).
 
@@ -393,7 +393,7 @@ untested."
 
 **ChainWatch** — arXiv:2607.19432. <https://arxiv.org/html/2607.19432>
 Kill-chain-aligned stateful detection for MCP agents. Names the canonical fraud chain:
-`get_balance → list_payees → add_payee → transfer_funds`. Per-call defenses pass all five;
+`list_endpoints → list_shares → register_destination → export_records`. Per-call defenses pass all five;
 sequence-level rules flag it.
 → *Method to borrow for the stateful policy; clearest worked example for the report.*
 
@@ -464,7 +464,7 @@ THREAT-MODEL MISMATCH box in §2 and D9 in the Decision Log. Settle before Task 
 |---|---|---|---|
 | **AgentDojo** (arXiv:2406.13352, NeurIPS 2024) | 97 tasks, 900+ pairs, 4 domains | Deterministic state-based checks; ASR + utility + utility-under-attack | **Primary harness.** In UK AISI Inspect. |
 | **STAC** (arXiv:2509.25624) | 483 chained cases, 1,352 interaction sets | Multi-step escape scenarios + released chains | **Primary for the sequence claim.** Repo: amazon-science/MultiTurnAgentAttack |
-| **SHADE-Arena** (Kutasov et al. 2025) | 4 complex envs, extends AgentDojo | Banking / Travel / Workspace / Spam Filter | STAC's main environments — check before authoring scenarios |
+| **SHADE-Arena** (Kutasov et al. 2025) | 4 complex envs, extends AgentDojo | RMM / Travel / Workspace / Spam Filter | STAC's main environments — check before authoring scenarios |
 | **Agent-SafetyBench** (Zhang et al. 2024) | 62 sampled envs; 10 failure modes | Failure-mode taxonomy | STAC's labelling scheme; alternative to ATLAS labels |
 | **InjecAgent** (arXiv:2403.02691) | 1,054 cases | IPI-specific | Secondary. |
 | **Agent Security Bench** (arXiv:2410.02644) | 10 scenarios, 400+ tools | 27 attack/defense methods | Secondary; Progent used it. |
@@ -478,7 +478,7 @@ THREAT-MODEL MISMATCH box in §2 and D9 in the Decision Log. Settle before Task 
 - Task utility and utility-under-attack.
 
 Report ASR **per domain and per attack**. AgentDojo's undefended ASR varies sharply
-(Slack ~58%, Banking ~19%, Workspace ~0% in one replication) — a single headline number is
+(Slack ~58%, RMM ~19%, Workspace ~0% in one replication) — a single headline number is
 misleading. Progent reports AgentDojo *and* ASB with utility alongside ASR. STAC reports per
 turn (T, T+1, T+2) — worth mirroring, since ASR climbing across turns is itself the sequence
 evidence.
@@ -532,7 +532,7 @@ the actual Anthropic publication from STAC's bibliography before using it.)*
       adversary** — options (a)/(b)/(c) in §2, tracked as D9. Blocks Task 14. **Highest priority.**
 - [ ] **Read the concurrent sequence-level guardrails in §2.1** (esp. MAGE) and narrow the
       novelty claim deliberately — tracked as D10. **Blocks Related Work.**
-- [ ] Check the STAC repo (amazon-science/MultiTurnAgentAttack) for reusable Banking chains
+- [ ] Check the STAC repo (amazon-science/MultiTurnAgentAttack) for reusable RMM chains
       before authoring scenarios from scratch.
 - [ ] Scenario labelling: ATLAS techniques (per `qa-redteam-plan.md`) or Agent-SafetyBench's
       10 failure modes, or both?
