@@ -1,0 +1,8 @@
+# Files mock domain (issue #13 criterion 1, expanded in #16). Deleting a file is irreversible,
+# so it routes to a human (D5 file-delete gate class). No matching rule -> fail-closed DENY.
+
+rules:
+  - rule_id: files.delete_file.gate
+    tool: delete_file
+    trigger: action
+    enforce: gate
