@@ -1,14 +1,39 @@
 """Model adapter parsing behavior."""
 
+import json
+
 import pytest
 
-from src.agent.model import ModelError, OllamaModel
+from src.agent.model import OllamaModel
+from src.transport.contract import DecisionSummary, ResultStatus, ToolResult, ToolSpec, Verdict
 
 
-def test_args_shape_error_includes_offending_content() -> None:
+@pytest.mark.parametrize("raw_args", [["/tmp/scratch.log"], "/tmp/scratch.log"])
+def test_non_object_args_normalize_to_empty_mapping(raw_args: object) -> None:
+    content = json.dumps({"tool": "read_file", "args": raw_args})
+
+    response = OllamaModel._parse(content)
+
+    assert response.proposal is not None
+    assert response.proposal.args == {}
+
+
+def test_render_corrects_non_object_args_on_next_turn(monkeypatch: pytest.MonkeyPatch) -> None:
     content = '{"tool": "read_file", "args": ["/tmp/scratch.log"]}'
+    model = OllamaModel(catalog=(ToolSpec("read_file", ("path",)),))
+    monkeypatch.setattr(
+        model,
+        "_post",
+        lambda _path, _payload: {"message": {"content": content}},
+    )
+    model.next_step("Read the scratch log", ())
+    history = (
+        ToolResult(
+            ResultStatus.DENIED,
+            DecisionSummary(Verdict.DENY, "default", "missing path"),
+        ),
+    )
 
-    with pytest.raises(ModelError, match="must be an object") as exc_info:
-        OllamaModel._parse(content)
+    rendered = model._render("Read the scratch log", history)
 
-    assert content in str(exc_info.value)
+    assert "'args' was not a JSON object and was normalized to {}" in rendered

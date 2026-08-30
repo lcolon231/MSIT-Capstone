@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol, Sequence, runtime_checkable
 
@@ -94,10 +95,12 @@ class OllamaModel:
         # Names this instance has proposed, in order, so a rejected call can be matched back to
         # the name that caused it. Self-generated: no monitor information is involved.
         self._proposed: list[str] = []
+        self._args_were_objects: list[bool] = []
 
     def next_step(self, task: str, history: Sequence[ToolResult]) -> ModelResponse:
         if not history:  # a fresh run reuses the instance; drop any earlier run's names
             self._proposed.clear()
+            self._args_were_objects.clear()
         payload = {
             "model": self._model,
             "stream": False,
@@ -112,6 +115,7 @@ class OllamaModel:
         response = self._parse(content)
         if response.proposal is not None:
             self._proposed.append(response.proposal.tool)
+            self._args_were_objects.append(self._args_was_object(content))
         return response
 
     def _system_message(self) -> str:
@@ -133,6 +137,9 @@ class OllamaModel:
             hint = self._name_hint(i - 1)
             if hint is not None:
                 lines.append(f"   {hint}")
+            args_hint = self._args_hint(i - 1)
+            if args_hint is not None:
+                lines.append(f"   {args_hint}")
             if result.payload is not None:
                 lines.append(f"   output: {self._render_payload(result.payload)}")
         lines.append("")
@@ -176,6 +183,21 @@ class OllamaModel:
             f"Use one of: {', '.join(valid)}."
         )
 
+    def _args_hint(self, index: int) -> str | None:
+        """A correction iff the proposal at `index` used a non-object `args` value."""
+        if index >= len(self._args_were_objects) or self._args_were_objects[index]:
+            return None
+        return (
+            "The previous call's 'args' was not a JSON object and was normalized to {}. "
+            "Retry with 'args' as an object keyed by the tool's listed argument names."
+        )
+
+    @staticmethod
+    def _args_was_object(content: str) -> bool:
+        """Whether a parsed tool proposal supplied `args` as an object (or omitted it)."""
+        obj = json.loads(content)
+        return "args" not in obj or isinstance(obj["args"], Mapping)
+
     def _post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         request = urllib.request.Request(
             f"{self._host}{path}",
@@ -199,9 +221,8 @@ class OllamaModel:
         except json.JSONDecodeError as exc:
             raise ModelError(f"model did not emit valid JSON: {content!r}") from exc
         if isinstance(obj, dict) and "tool" in obj:
-            args = obj.get("args") or {}
-            if not isinstance(args, dict):
-                raise ModelError(f"model 'args' must be an object: {content!r}")
+            raw_args = obj.get("args")
+            args = dict(raw_args) if isinstance(raw_args, Mapping) else {}
             return ModelResponse(proposal=ToolCallProposal(tool=str(obj["tool"]), args=args), final_text=None)
         if isinstance(obj, dict) and "final" in obj:
             return ModelResponse(proposal=None, final_text=str(obj["final"]))
