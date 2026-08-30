@@ -12,7 +12,8 @@ Three enforcement layers, plus an append-only audit log and an operator web cons
    whose individual steps all pass per-call checks.
 3. **Human approval gate** — four irreversible classes route to a human via a web console.
 
-See `tasks/spec.md` for the full specification and `docs/design/` for the architecture.
+See `tasks/spec.md` for the full specification, `docs/design/` for the architecture, and
+`docs/evaluation-results.md` for the latest live-model evaluation results.
 
 ## Commands
 
