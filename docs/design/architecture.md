@@ -120,19 +120,26 @@ turns into failing builds.
 - **Must never import:** `src/agent`. The transport is wired to the agent by the composition root
   via dependency injection; the agent never names a concrete transport.
 
-### 3.3a `src/transport/loopback_server.py` — monitor-side HTTP adapter (target split)
-- **Owns:** loopback-only request decoding, the launcher-only bootstrap/control endpoint, session
-  capability validation, and delegation to `MonitorService.handle`. The server passes decoded
-  objects — including malformed shapes — to the service's semantic normalization boundary; it
-  never bypasses the service or crashes open. Missing, expired, or invalid capabilities become an
-  audited system `DENY` rather than an HTTP-path exception that could bypass mediation.
-- **May import:** `src/monitor/service`, `src/transport/contract`, stdlib HTTP/JSON.
+### 3.3a `src/transport/loopback_server.py` — monitor-side HTTP adapter
+- **Owns:** loopback-only request decoding, the launcher-only bootstrap endpoint (session
+  creation gated by a high-entropy capability), session validation, and delegation to
+  `MonitorService.handle`. The server passes decoded objects — including malformed shapes — to the
+  service's normalization boundary; it never bypasses the service or crashes open. A missing/invalid
+  bootstrap capability is refused (no session, so nothing can dispatch); a bad body or unknown
+  session flows into the service's fail-closed path and returns a DENY `ToolResult`, never an
+  HTTP-path exception that could bypass mediation.
+- **May import:** `src/monitor/service`, `src/transport/contract`, `src/transport/loopback` (for the
+  shared bootstrap-header name), stdlib HTTP/JSON.
 - **Must never import:** `src/agent`; it runs only in the monitor process.
 
-The restored skeleton currently places `LoopbackServer` beside the client in
-`src/transport/loopback.py`. That co-location is not the approved target: importing the client
-would also import `MonitorService`. Implementation must make the physical split above before the
-loopback deployment can support the OS-boundary claim.
+**Status: implemented (issue #54).** The client/server split above is in place — `loopback.py`
+holds the client half (contract + stdlib http/json only; `tests/test_import_graph.py` asserts its
+closure never reaches `monitor`/`tools`/`policy`) and `loopback_server.py` holds the
+`MonitorService`-importing half. `src/monitor_server.py` runs the server as its own process; the
+trusted launcher (`--transport loopback`) spawns it, mints the bootstrap capability, and speaks
+HTTP to it. `tests/test_loopback_transport.py` proves the full kill chain is blocked with agent and
+monitor in **separate OS processes**, and `src/eval/loopback_parity.py` shows every suite scenario
+yields the same decision stream and outcome over loopback as in-process.
 
 ### 3.4 `src/monitor/types.py` — core enforcement value types
 - **Owns:** `Verdict` (re-exported/aligned with contract), `Decision` (frozen; **always** a
@@ -313,9 +320,11 @@ Why this holds structurally:
 
 - The agent imports only `transport.contract` (pure leaf) and `transport.client` (protocol,
   implementation-free). Neither reaches `tools`/`policy`/`monitor`.
-- In the target layout, `transport.loopback` is enforcement-free and its server adapter is a
-  separate module in the monitor process. The existing required import-graph test checks the agent
-  closure. `transport.inprocess` does reach the monitor, explicitly as the weaker scope cut.
+- `transport.loopback` (the client half) is enforcement-free and its server adapter
+  (`loopback_server.py`) is a separate module that runs in the monitor process. Beyond the required
+  agent-closure test, `tests/test_import_graph.py` now also asserts the loopback **client** closure
+  never reaches `monitor`/`tools`/`policy`, so the split is self-enforcing. `transport.inprocess`
+  does reach the monitor, explicitly as the weaker scope cut.
 - Under **loopback**, tool and policy objects exist only in the monitor process; the client import
   closure cannot load them. The OS boundary prevents object/memory access, while deployment should
   package the agent-side entry point with only agent and client-transport modules. The threat model
