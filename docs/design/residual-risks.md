@@ -134,3 +134,15 @@ policy literally unimportable in the agent process.
 documented as a convenience/scope-cut for CI and quick demos, and the report should state the
 tamper-resistance claim as holding under the loopback deployment, with in-process called out as the
 weaker, explicitly-labeled fallback.
+
+**Status (issue #54).** The loopback transport is now implemented, not a stub: the client half
+(`src/transport/loopback.py`, stdlib HTTP/JSON, no `monitor` import), the monitor-side server
+(`src/transport/loopback_server.py`), a monitor-process entrypoint (`src/monitor_server.py`), and a
+`--transport loopback` launcher flag. `tests/test_loopback_transport.py` blocks the full kill chain
+with the agent and monitor in **separate OS processes**, and `src/eval/loopback_parity.py` confirms
+every suite scenario decides identically over loopback and in-process. What remains a residual risk
+is unchanged: the in-process fallback shares an address space, so the strongest form of the claim
+requires the loopback deployment. One caveat specific to the current loopback build: it terminates
+TLS-free plaintext HTTP on `127.0.0.1` and authenticates session creation with a bootstrap
+capability only — it assumes a trustworthy local loopback interface (no hostile co-tenant process
+binding or sniffing localhost), which is consistent with the single-host threat model (D9).

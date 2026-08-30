@@ -103,6 +103,25 @@ def test_agent_has_no_path_to_tools_policy_or_monitor() -> None:
     )
 
 
+def test_loopback_client_has_no_path_to_monitor_tools_or_policy() -> None:
+    """The loopback CLIENT half (`src.transport.loopback`) lives in the AGENT process, so its
+    transitive import closure must never reach `monitor` / `tools` / `policy`. This is what makes
+    the OS-isolation claim self-enforcing: the moment someone re-adds a `from src.monitor ...`
+    to the client (as the old stub had), this fails — the server half lives in
+    `loopback_server.py` for exactly this reason (architecture.md §3.3a)."""
+    graph = _build_graph()
+    client = "src.transport.loopback"
+    assert client in graph, f"{client} not found — check the transport layout"
+
+    reachable = _closure({client}, graph) | {client}
+    violations = sorted(m for m in reachable if m.startswith(FORBIDDEN_PREFIXES))
+    assert not violations, (
+        "src/transport/loopback (client half) gained an import path to forbidden packages: "
+        f"{violations}. The client must reach the monitor only over the loopback socket; the "
+        "MonitorService-importing half belongs in loopback_server.py (D11 PRIMARY, §3.3a)."
+    )
+
+
 def test_agent_imports_only_transport_contract_and_client() -> None:
     """Stronger, intent-revealing check: the agent's DIRECT first-party imports are limited to
     the transport contract and client. Tightens the boundary beyond the minimum above."""

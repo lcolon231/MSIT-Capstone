@@ -69,3 +69,57 @@ class ToolResult:
     status: ResultStatus
     decision: DecisionSummary
     payload: Any = None  # tool output when EXECUTED; None otherwise
+
+
+# --- wire codec (D11 loopback) -------------------------------------------------------------
+# The single source of truth for the JSON shapes that cross the loopback boundary in both
+# directions. Both transport halves import these; keeping the format here (stdlib/JSON only)
+# is what lets the client half stay free of any `monitor` import. Decoding is fail-closed: a
+# missing/malformed proposal degrades to an empty call the monitor will DENY, never an
+# exception that could bypass mediation.
+
+
+def proposal_to_wire(proposal: ToolCallProposal) -> dict[str, Any]:
+    """Serialize a ``ToolCallProposal`` to a JSON-ready dict. Only tool + args cross — the same
+    invariant as the DTO itself (no identity, no verdict hints)."""
+    return {"tool": proposal.tool, "args": dict(proposal.args)}
+
+
+def proposal_from_wire(data: Any) -> ToolCallProposal:
+    """Rebuild a ``ToolCallProposal`` from decoded JSON, leniently. A non-object body, a missing
+    ``tool``, or non-mapping ``args`` normalize to a call the monitor will reject on its own
+    validation boundary — the server never raises on shape."""
+    if not isinstance(data, Mapping):
+        return ToolCallProposal(tool="", args={})
+    raw_args = data.get("args")
+    args = dict(raw_args) if isinstance(raw_args, Mapping) else {}
+    return ToolCallProposal(tool=str(data.get("tool", "")), args=args)
+
+
+def result_to_wire(result: ToolResult) -> dict[str, Any]:
+    """Serialize a ``ToolResult`` (status + redacted decision + untrusted payload) to a
+    JSON-ready dict."""
+    return {
+        "status": result.status.value,
+        "decision": {
+            "verdict": result.decision.verdict.value,
+            "rule_id": result.decision.rule_id,
+            "reason": result.decision.reason,
+        },
+        "payload": result.payload,
+    }
+
+
+def result_from_wire(data: Mapping[str, Any]) -> ToolResult:
+    """Rebuild a ``ToolResult`` from decoded JSON. Used by the client half to turn the monitor's
+    response back into the same DTO the in-process path returns."""
+    decision = data["decision"]
+    return ToolResult(
+        status=ResultStatus(data["status"]),
+        decision=DecisionSummary(
+            verdict=Verdict(decision["verdict"]),
+            rule_id=decision["rule_id"],
+            reason=decision["reason"],
+        ),
+        payload=data.get("payload"),
+    )

@@ -7,52 +7,34 @@ tests/test_import_graph.py), so the composition root cannot be ``src.agent.run``
 there would breach the very boundary the project claims. Hence:
 
     python -m src.launcher --task "drain the account" --model stub
+    python -m src.launcher --task "drain the account" --transport loopback
 
 ``--model stub`` runs a deterministic scripted kill chain (no external services), so the demo
 runs anywhere; ``--model ollama`` drives it with a live Llama-3.1-8B via Ollama.
+
+``--transport inprocess`` (default) is the same-address-space scope cut. ``--transport loopback``
+runs the monitor as its OWN OS process (``src/monitor_server.py``) and speaks HTTP to it — the D11
+primary path, with genuine OS-level isolation between agent and monitor.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
+import os
+import socket
+import subprocess
 import sys
+import uuid
 from pathlib import Path
-from typing import Sequence
+from typing import Iterator, Sequence
 
 from src.agent.loop import Agent, AgentRun
 from src.agent.model import ModelClient, ModelResponse, OllamaModel, StubModel
-from src.audit.writer import AuditWriter
-from src.monitor.gate import ApprovalQueue
-from src.monitor.service import MonitorService
-from src.monitor.session import RetentionConfig, SessionRegistry
-from src.policy.loader import load_policy
-from src.tools.base import ToolRegistry
-from src.tools.rmm import EndpointState, register_rmm
+from src.composition import build_monitor
 from src.transport.contract import ToolCallProposal
 from src.transport.inprocess import InProcessTransport
-
-PRINCIPAL = "client-primary"  # the session-bound principal MonitorService assigns by default
-
-
-def build_monitor(
-    policy_path: Path, audit_path: Path, approval_timeout_s: float = 2.0
-) -> MonitorService:
-    """Compose a monitor over the RMM domain: registry + policy + audit + sessions + gate."""
-    registry = ToolRegistry()
-    register_rmm(
-        registry,
-        EndpointState(
-            endpoints={PRINCIPAL: ["ep-clinic-01", "ep-clinic-02"]},
-            shares={PRINCIPAL: ["patient-records", "billing"]},
-            destinations={PRINCIPAL: ["approved-baa-backup"]},
-        ),
-    )
-    audit = AuditWriter(audit_path)
-    sessions = SessionRegistry(audit, RetentionConfig())
-    approvals = ApprovalQueue()
-    return MonitorService(
-        load_policy(policy_path), registry, audit, sessions, approvals, approval_timeout_s=approval_timeout_s
-    )
+from src.transport.loopback import LoopbackError, LoopbackTransport, wait_until_ready
 
 
 def demo_script() -> list[ModelResponse]:
@@ -83,6 +65,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--task", required=True, help="the task to hand the agent")
     parser.add_argument("--model", choices=("stub", "ollama"), default="stub")
+    parser.add_argument(
+        "--transport",
+        choices=("inprocess", "loopback"),
+        default="inprocess",
+        help="inprocess = same-address-space scope cut; loopback = monitor in its own process (D11 primary)",
+    )
     parser.add_argument("--policy", default="policies/rmm.yaml")
     parser.add_argument("--audit", default="results/agent-run-audit.jsonl")
     parser.add_argument("--ollama-model", default="llama3.1:8b")
@@ -90,10 +78,57 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--max-steps", type=int, default=25)
     args = parser.parse_args(argv)
 
+    model = build_model(args.model, args.ollama_model, args.ollama_host)
+    if args.transport == "loopback":
+        with _loopback_transport(Path(args.policy), Path(args.audit)) as transport:
+            agent = Agent(model, transport)
+            _print_run(args.task, agent.run_traced(args.task, max_steps=args.max_steps))
+        return 0
+
     service = build_monitor(Path(args.policy), Path(args.audit))
-    agent = Agent(build_model(args.model, args.ollama_model, args.ollama_host), InProcessTransport(service))
+    agent = Agent(model, InProcessTransport(service))
     _print_run(args.task, agent.run_traced(args.task, max_steps=args.max_steps))
     return 0
+
+
+def _free_port(host: str = "127.0.0.1") -> int:
+    """Ask the OS for an unused TCP port so a demo run never collides with a stale server."""
+    with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
+        sock.bind((host, 0))
+        return sock.getsockname()[1]
+
+
+@contextlib.contextmanager
+def _loopback_transport(policy: Path, audit: Path) -> Iterator[LoopbackTransport]:
+    """Spawn the monitor as its OWN process, yield a client transport bound to it, and tear the
+    process down afterwards. This is genuine OS-level isolation: the agent side (this process)
+    never imports or holds the monitor — it only speaks HTTP to the subprocess.
+
+    The bootstrap capability is minted here (trusted launcher, D14) and passed to the monitor by
+    environment variable, so only this launcher can open a session on that endpoint."""
+    host, port = "127.0.0.1", _free_port()
+    base_url = f"http://{host}:{port}"
+    capability = uuid.uuid4().hex
+    env = {**os.environ, "LOOPBACK_CAPABILITY": capability}
+    proc = subprocess.Popen(
+        [
+            sys.executable, "-m", "src.monitor_server",
+            "--profile", "rmm",
+            "--host", host, "--port", str(port),
+            "--policy", str(policy), "--audit", str(audit),
+        ],
+        env=env,
+    )
+    try:
+        if not wait_until_ready(base_url, timeout_s=15.0):
+            raise LoopbackError(f"monitor process did not become ready at {base_url}")
+        yield LoopbackTransport(base_url, capability=capability)
+    finally:
+        proc.terminate()
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            proc.wait(timeout=5.0)
+        if proc.poll() is None:
+            proc.kill()
 
 
 def _print_run(task: str, run: AgentRun) -> None:
