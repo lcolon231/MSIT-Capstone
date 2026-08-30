@@ -189,8 +189,9 @@ audit log records it. This is the video demo. 📸 Capture the whole flow.
 ### T5.3 Eval runner + metrics — criterion #6
 - [x] `python -m src.eval.run --suite all --out results/` emits false-approval / false-block /
       utility, per domain and per attack
-- [x] Live run on the build box with Ollama; capture metrics and audit logs — benign smoke result:
-      100% utility, 0% false-block (`docs/evaluation-results.md`)
+- [x] Live run on the build box with Ollama; capture metrics and audit logs — full-suite result:
+      100% containment, 0% false-approval, 0% false-block, 100% utility
+      (`docs/evaluation-results.md`, `results/issue-19/`)
 - **Report:** Testing and Quality Assurance — test plan, cases, expected vs actual, QA
   procedures, coverage report, results tables
 

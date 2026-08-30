@@ -16,7 +16,9 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 .coverage
-results/
+results/*
+!results/issue-19/
+!results/issue-19/**
 
 # IDE
 .idea/
