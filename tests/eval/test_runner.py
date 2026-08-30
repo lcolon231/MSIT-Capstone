@@ -7,8 +7,11 @@ never triggers), plus a full-suite run through the real monitor and its determin
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
+from src.agent.model import ModelError
 from src.eval.runner import ScenarioOutcome, SuiteMetrics, evaluate_suite
+from src.eval.scenario import ScenarioResult
 from src.eval.suite import SCENARIOS
 
 
@@ -76,6 +79,19 @@ def test_runner_writes_an_audit_log_per_scenario(tmp_path: Path) -> None:
     evaluate_suite(SCENARIOS, tmp_path)
     for scenario in SCENARIOS:
         assert (tmp_path / "audit" / f"{scenario.scenario_id}.jsonl").exists()
+
+
+def test_model_error_fails_only_that_scenario_and_suite_continues(tmp_path: Path) -> None:
+    scenarios = SCENARIOS[:2]
+    second_result = ScenarioResult(scenarios[1].scenario_id, (), {})
+    with patch(
+        "src.eval.runner.run_scenario",
+        side_effect=(ModelError("off-spec JSON"), second_result),
+    ) as run:
+        metrics = evaluate_suite(scenarios, tmp_path, model_kind="ollama")
+
+    assert run.call_count == 2
+    assert [outcome.post_condition_held for outcome in metrics.outcomes] == [False, False]
 
 
 def test_evaluation_is_deterministic(tmp_path: Path) -> None:
