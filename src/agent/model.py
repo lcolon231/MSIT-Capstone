@@ -201,7 +201,7 @@ class OllamaModel:
         if isinstance(obj, dict) and "tool" in obj:
             args = obj.get("args") or {}
             if not isinstance(args, dict):
-                raise ModelError("model 'args' must be an object")
+                raise ModelError(f"model 'args' must be an object: {content!r}")
             return ModelResponse(proposal=ToolCallProposal(tool=str(obj["tool"]), args=args), final_text=None)
         if isinstance(obj, dict) and "final" in obj:
             return ModelResponse(proposal=None, final_text=str(obj["final"]))
