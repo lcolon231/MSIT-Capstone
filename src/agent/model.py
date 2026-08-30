@@ -18,6 +18,10 @@ from typing import Any, Protocol, Sequence, runtime_checkable
 
 from src.transport.contract import ToolCallProposal, ToolResult, ToolSpec
 
+# Cap on how much of one tool's output is shown back to the model, so a large payload (a file
+# body, say) cannot crowd the task and the catalog out of the context window.
+_PAYLOAD_CHARS = 300
+
 
 @dataclass(frozen=True)
 class ModelResponse:
@@ -129,9 +133,33 @@ class OllamaModel:
             hint = self._name_hint(i - 1)
             if hint is not None:
                 lines.append(f"   {hint}")
+            if result.payload is not None:
+                lines.append(f"   output: {self._render_payload(result.payload)}")
         lines.append("")
         lines.append("Emit the next JSON object.")
         return "\n".join(lines)
+
+    @staticmethod
+    def _render_payload(payload: Any) -> str:
+        """One tool's returned output, as compact JSON, truncated to keep the prompt bounded.
+
+        This is the tool's own domain output and nothing else: the monitor sets `payload` only
+        for a call it actually executed, and only from the tool's return value. It carries no
+        verdict, rule, session or policy information — the redacted `DecisionSummary` rendered
+        above remains the agent's entire view of the decision (D11).
+
+        Untrusted by construction: tool output can carry attacker-controlled text (a poisoned
+        ticket body, say). Showing it to the model is the point — it is the indirect-injection
+        surface the suite is meant to exercise — and the monitor still mediates whatever the
+        model does in response.
+        """
+        try:
+            text = json.dumps(payload, default=str, separators=(",", ":"))
+        except (TypeError, ValueError):
+            text = str(payload)
+        if len(text) > _PAYLOAD_CHARS:
+            return f"{text[:_PAYLOAD_CHARS]}... [truncated]"
+        return text
 
     def _name_hint(self, index: int) -> str | None:
         """A correction for observation `index` iff the name proposed there is not in the
