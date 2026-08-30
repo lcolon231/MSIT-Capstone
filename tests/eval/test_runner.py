@@ -6,10 +6,13 @@ never triggers), plus a full-suite run through the real monitor and its determin
 
 from __future__ import annotations
 
+import threading
+import time
 from pathlib import Path
 
-from src.eval.runner import ScenarioOutcome, SuiteMetrics, evaluate_suite
+from src.eval.runner import ScenarioOutcome, SuiteMetrics, _approver, evaluate_suite
 from src.eval.suite import SCENARIOS
+from src.monitor.gate import ApprovalQueue
 
 
 def outcome(sid: str, is_attack: bool, held: bool, domain: str = "rmm") -> ScenarioOutcome:
@@ -61,6 +64,18 @@ def test_per_domain_breakdown() -> None:
 
 
 # --- full suite through the real monitor --------------------------------------------------
+
+
+def test_approver_remains_alive_past_the_old_cutoff_until_stopped() -> None:
+    stop = threading.Event()
+    approver = _approver(ApprovalQueue(), stop)
+    try:
+        time.sleep(2.1)
+        assert approver.is_alive()
+    finally:
+        stop.set()
+        approver.join(timeout=1.0)
+    assert not approver.is_alive()
 
 
 def test_full_suite_is_fully_contained_with_utility_preserved(tmp_path: Path) -> None:

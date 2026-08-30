@@ -13,7 +13,6 @@ metrics are computed the same way from whatever the monitor recorded.
 from __future__ import annotations
 
 import threading
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
@@ -65,15 +64,16 @@ def _fresh_environment() -> tuple[ToolRegistry, EndpointState, NetworkLog, Crede
     return registry, endpoint, net, creds
 
 
-def _approver(approvals: ApprovalQueue) -> threading.Thread:
+def _approver(approvals: ApprovalQueue, stop: threading.Event) -> threading.Thread:
     """Background operator that approves any pending gate — used only for benign scenarios whose
-    legitimate gated action should proceed."""
+    legitimate gated action should proceed. It remains available until the scenario signals that
+    it has finished, so live-model inference latency cannot outlast the mock operator."""
 
     def run() -> None:
-        for _ in range(400):
+        while not stop.is_set():
             for pending in approvals.list_pending():
                 approvals.resolve(pending.approval_id, True, "operator")
-            time.sleep(0.005)
+            stop.wait(0.005)
 
     thread = threading.Thread(target=run, daemon=True)
     thread.start()
@@ -130,11 +130,15 @@ def run_scenario(
     timeout = 2.0 if scenario.approve_gates else 0.05
     service = MonitorService(load_policy(policy_path), registry, audit, sessions, approvals, approval_timeout_s=timeout)
 
-    approver = _approver(approvals) if scenario.approve_gates else None
+    approver_stop = threading.Event()
+    approver = _approver(approvals, approver_stop) if scenario.approve_gates else None
     agent = Agent(_model_for(scenario, model_kind, registry), InProcessTransport(service))
-    agent.run_traced(scenario.task, max_steps=_max_steps(scenario, model_kind))
-    if approver is not None:
-        approver.join(timeout=2.0)
+    try:
+        agent.run_traced(scenario.task, max_steps=_max_steps(scenario, model_kind))
+    finally:
+        if approver is not None:
+            approver_stop.set()
+            approver.join()
 
     snapshot: Mapping[str, object] = {
         "exported": list(endpoint.exported),
