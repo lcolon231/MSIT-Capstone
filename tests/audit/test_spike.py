@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.audit.spike import SessionCounts, flag_spikes, tally
+from src.audit.spike import SessionCounts, flag_spikes, main, tally
 from src.audit.writer import AuditWriter
 from src.monitor.types import Principal, SessionId
 from src.transport.contract import Verdict
@@ -101,3 +101,29 @@ def test_flag_spikes_orders_by_severity(tmp_path: Path) -> None:
     flagged = flag_spikes(path, deny_threshold=3, gate_threshold=3)
 
     assert [c.session_id for c in flagged] == [SessionId("severe"), SessionId("mild")]
+
+
+def _write_log(path: Path, session: str, verdict: Verdict, n: int) -> None:
+    writer = AuditWriter(path)
+    for _ in range(n):
+        writer.append(decision_ev(session_id=SessionId(session), verdict=verdict))
+
+
+def test_main_exits_nonzero_when_a_session_is_flagged(tmp_path: Path, capsys) -> None:
+    path = tmp_path / "audit.jsonl"
+    _write_log(path, "noisy", Verdict.DENY, 3)
+
+    code = main([str(path), "--deny-threshold", "3", "--gate-threshold", "3"])
+
+    assert code == 1  # non-zero so the command can gate a scheduled alert check
+    assert "1 session(s) flagged" in capsys.readouterr().out
+
+
+def test_main_exits_zero_when_all_sessions_quiet(tmp_path: Path, capsys) -> None:
+    path = tmp_path / "audit.jsonl"
+    _write_log(path, "quiet", Verdict.DENY, 1)
+
+    code = main([str(path), "--deny-threshold", "3", "--gate-threshold", "3"])
+
+    assert code == 0
+    assert "no sessions exceeded the thresholds" in capsys.readouterr().out
