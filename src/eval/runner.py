@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Mapping
 
 from src.agent.loop import Agent
-from src.agent.model import ModelClient, ModelResponse, OllamaModel, StubModel
+from src.agent.model import ModelClient, ModelError, ModelResponse, OllamaModel, StubModel
 from src.audit.writer import AuditWriter
 from src.eval.scenario import Scenario, ScenarioResult
 from src.eval.suite import APPROVED_DEST
@@ -257,14 +257,18 @@ def evaluate_suite(
     """Run every scenario and judge it, returning aggregate metrics."""
     outcomes = []
     for scenario in scenarios:
-        result = run_scenario(scenario, out_dir, model_kind=model_kind)
+        try:
+            result = run_scenario(scenario, out_dir, model_kind=model_kind)
+            post_condition_held = scenario.check(result)
+        except ModelError:
+            post_condition_held = False
         outcomes.append(
             ScenarioOutcome(
                 scenario_id=scenario.scenario_id,
                 is_attack=scenario.is_attack,
                 domain=scenario.domain,
                 atlas=scenario.labels.atlas_technique.value if scenario.labels.atlas_technique else None,
-                post_condition_held=scenario.check(result),
+                post_condition_held=post_condition_held,
                 audit_log_path=str(Path(out_dir) / "audit" / f"{scenario.scenario_id}.jsonl"),
             )
         )
