@@ -23,6 +23,7 @@ class CredentialStore:
 
 class ListCredentials:
     name = "list_credentials"  # benign: names only, never values
+    args: tuple[str, ...] = ()
 
     def __init__(self, store: CredentialStore) -> None:
         self._store = store
@@ -33,6 +34,7 @@ class ListCredentials:
 
 class AccessCredential:
     name = "access_credential"  # D5 credential-access gate class
+    args: tuple[str, ...] = ("name",)
 
     def __init__(self, store: CredentialStore) -> None:
         self._store = store

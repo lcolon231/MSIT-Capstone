@@ -33,6 +33,21 @@ class ResultStatus(Enum):
 
 
 @dataclass(frozen=True)
+class ToolSpec:
+    """One tool the agent may name in a proposal: its exact name and accepted argument names.
+
+    The monitor owns the tool registry; a catalog of these is handed to the agent so it can
+    address real tools instead of inventing plausible-looking names. Deliberately carries NO
+    verdict information: that a tool EXISTS says nothing about whether calling it will be
+    permitted, and the catalog is identical under benign and attack conditions. The monitor
+    still mediates every call (D11).
+    """
+
+    name: str
+    args: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class ToolCallProposal:
     """What the agent emits. Tool name + arguments only — no identity, no verdict hints."""
 

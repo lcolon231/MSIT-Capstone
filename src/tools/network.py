@@ -23,6 +23,7 @@ class NetworkLog:
 
 class FetchUrl:
     name = "fetch_url"  # benign read-only fetch (canned response, no real network)
+    args: tuple[str, ...] = ("url",)
 
     _CANNED_BODY = "mock-response-body"
 
@@ -37,6 +38,7 @@ class FetchUrl:
 
 class SendNetwork:
     name = "send_network"  # D5 network-send gate class (outbound egress)
+    args: tuple[str, ...] = ("dest", "payload")
 
     def __init__(self, log: NetworkLog) -> None:
         self._log = log

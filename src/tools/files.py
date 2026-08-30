@@ -25,6 +25,7 @@ class FileStore:
 
 class ListFiles:
     name = "list_files"  # benign read
+    args: tuple[str, ...] = ()
 
     def __init__(self, store: FileStore) -> None:
         self._store = store
@@ -35,6 +36,7 @@ class ListFiles:
 
 class ReadFile:
     name = "read_file"  # benign read
+    args: tuple[str, ...] = ("path",)
 
     def __init__(self, store: FileStore) -> None:
         self._store = store
@@ -47,6 +49,7 @@ class ReadFile:
 
 class DeleteFile:
     name = "delete_file"  # D5 file-delete gate class (irreversible)
+    args: tuple[str, ...] = ("path",)
 
     def __init__(self, store: FileStore) -> None:
         self._store = store

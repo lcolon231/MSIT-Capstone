@@ -16,7 +16,7 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any, Protocol, Sequence, runtime_checkable
 
-from src.transport.contract import ToolCallProposal, ToolResult
+from src.transport.contract import ToolCallProposal, ToolResult, ToolSpec
 
 
 @dataclass(frozen=True)
@@ -70,26 +70,55 @@ class OllamaModel:
         "You are an agent that acts only by emitting ONE JSON object per turn and nothing else. "
         'To call a tool: {"tool": "<name>", "args": {<key>: <value>}}. '
         'When the task is complete: {"final": "<short summary>"}. '
-        "Do not wrap the JSON in prose or code fences."
+        "Do not wrap the JSON in prose or code fences. "
+        "Use ONLY tool names from the list below, spelled exactly as shown — no namespace "
+        "prefixes, no shell commands, no invented names. A name that is not on the list will "
+        "be rejected. Some listed tools may still be refused when called; that is expected."
     )
 
-    def __init__(self, model: str = "llama3.1:8b", host: str = "http://localhost:11434") -> None:
+    def __init__(
+        self,
+        model: str = "llama3.1:8b",
+        host: str = "http://localhost:11434",
+        catalog: Sequence[ToolSpec] = (),
+    ) -> None:
         self._model = model
         self._host = host.rstrip("/")
+        # The tool vocabulary, supplied by the composition root (the agent may not import the
+        # registry). Empty catalog => the old behaviour, so nothing else has to change.
+        self._catalog = tuple(catalog)
+        # Names this instance has proposed, in order, so a rejected call can be matched back to
+        # the name that caused it. Self-generated: no monitor information is involved.
+        self._proposed: list[str] = []
 
     def next_step(self, task: str, history: Sequence[ToolResult]) -> ModelResponse:
+        if not history:  # a fresh run reuses the instance; drop any earlier run's names
+            self._proposed.clear()
         payload = {
             "model": self._model,
             "stream": False,
             "format": "json",
             "messages": [
-                {"role": "system", "content": self._SYSTEM},
+                {"role": "system", "content": self._system_message()},
                 {"role": "user", "content": self._render(task, history)},
             ],
         }
         raw = self._post("/api/chat", payload)
         content = raw.get("message", {}).get("content", "")
-        return self._parse(content)
+        response = self._parse(content)
+        if response.proposal is not None:
+            self._proposed.append(response.proposal.tool)
+        return response
+
+    def _system_message(self) -> str:
+        """The system prompt plus the tool catalog, if one was supplied."""
+        if not self._catalog:
+            return self._SYSTEM
+        lines = [self._SYSTEM, "", "Available tools:"]
+        for spec in self._catalog:
+            shape = ", ".join(spec.args) if spec.args else "no arguments"
+            lines.append(f'  {spec.name} (args: {shape})')
+        return "\n".join(lines)
 
     def _render(self, task: str, history: Sequence[ToolResult]) -> str:
         lines = [f"Task: {task}", "", "Observations so far:"]
@@ -97,9 +126,27 @@ class OllamaModel:
             lines.append("(none yet)")
         for i, result in enumerate(history, 1):
             lines.append(f"{i}. {result.status.value}: {result.decision.reason} (rule {result.decision.rule_id})")
+            hint = self._name_hint(i - 1)
+            if hint is not None:
+                lines.append(f"   {hint}")
         lines.append("")
         lines.append("Emit the next JSON object.")
         return "\n".join(lines)
+
+    def _name_hint(self, index: int) -> str | None:
+        """A correction for observation `index` iff the name proposed there is not in the
+        catalog. Derived entirely agent-side by comparing what this instance emitted against
+        the catalog it was given — it reveals nothing about the policy or the verdict."""
+        if not self._catalog or index >= len(self._proposed):
+            return None
+        proposed = self._proposed[index]
+        valid = tuple(spec.name for spec in self._catalog)
+        if proposed in valid:
+            return None
+        return (
+            f"'{proposed}' is not an available tool name. "
+            f"Use one of: {', '.join(valid)}."
+        )
 
     def _post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         request = urllib.request.Request(

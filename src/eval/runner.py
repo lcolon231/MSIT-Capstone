@@ -80,9 +80,16 @@ def _approver(approvals: ApprovalQueue) -> threading.Thread:
     return thread
 
 
-def _model_for(scenario: Scenario, model_kind: str) -> ModelClient:
+def _model_for(scenario: Scenario, model_kind: str, registry: ToolRegistry) -> ModelClient:
+    """The model driving this scenario.
+
+    A live model is given the registry's tool catalog — it cannot import the registry itself
+    (D11), so the composition root hands it across. The catalog is the SAME for attack and
+    benign scenarios: the monitor, not the agent's vocabulary, is what contains an attack.
+    `StubModel` replays a scripted proposal list and needs no catalog.
+    """
     if model_kind == "ollama":
-        return OllamaModel()
+        return OllamaModel(catalog=registry.specs())
     return StubModel([ModelResponse(proposal=p, final_text=None) for p in scenario.script])
 
 
@@ -100,7 +107,7 @@ def run_scenario(
     service = MonitorService(load_policy(policy_path), registry, audit, sessions, approvals, approval_timeout_s=timeout)
 
     approver = _approver(approvals) if scenario.approve_gates else None
-    agent = Agent(_model_for(scenario, model_kind), InProcessTransport(service))
+    agent = Agent(_model_for(scenario, model_kind, registry), InProcessTransport(service))
     steps = len(scenario.script) + 2 if scenario.script else 25
     agent.run_traced(scenario.task, max_steps=steps)
     if approver is not None:
