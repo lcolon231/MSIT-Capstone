@@ -1,0 +1,2 @@
+{"type":"session_lifecycle","session_id":"s-6c165b479a6c41b1b42a54f697a51122","principal":null,"action":"open","timestamp":1788058757.324908}
+{"type":"decision","call_id":"f00100b529694986959f901d3cc5c86c","session_id":"s-6c165b479a6c41b1b42a54f697a51122","principal":"client-primary","tool":"fetch_url","arg_sha256":"0f15f829ad512aa8ad3beeffc4d1541d87a20cb2a1461a166f0f3256890b277f","verdict":"allow","rule_id":"network.fetch_url.allow","reason":"matched rule 'network.fetch_url.allow'","gate_class":null,"timestamp":1788058757.3259008}

@@ -1,0 +1,2 @@
+{"type":"session_lifecycle","session_id":"s-5d3899b831ca41949329b4dee4f1f1a0","principal":null,"action":"open","timestamp":1788058757.248846}
+{"type":"decision","call_id":"4fbb3b44040e4118ad1368c2646e6da5","session_id":"s-5d3899b831ca41949329b4dee4f1f1a0","principal":"client-primary","tool":"disable_logging","arg_sha256":"b8669a4ca561a4212ee358acdeae02d70eb8ccf23d345a8b332c34a8087c5f17","verdict":"deny","rule_id":"rmm.disable_logging.deny","reason":"matched rule 'rmm.disable_logging.deny'","gate_class":null,"timestamp":1788058757.2498534}
