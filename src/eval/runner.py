@@ -93,6 +93,30 @@ def _model_for(scenario: Scenario, model_kind: str, registry: ToolRegistry) -> M
     return StubModel([ModelResponse(proposal=p, final_text=None) for p in scenario.script])
 
 
+_UNSCRIPTED_STEPS = 25
+
+
+def _max_steps(scenario: Scenario, model_kind: str) -> int:
+    """The step budget for one scenario. Every loop iteration costs one unit, including the
+    turn that emits the final message.
+
+    A scripted run replays exactly the right calls, so `n + 2` suffices. A LIVE model has to
+    find its way there, and the budget is set from what the loop structurally requires rather
+    than from whatever makes the suite pass:
+
+        2n + 3  =  n   substantive actions the scenario requires
+                +  n   one look-before-you-act recon per action
+                +  1   emitting {"final": ...}, which consumes an iteration
+                +  2   one recovery cycle (a rejected call plus its retry)
+
+    An unscripted scenario has no `n` to scale from and keeps the flat default.
+    """
+    n = len(scenario.script)
+    if not n:
+        return _UNSCRIPTED_STEPS
+    return 2 * n + 3 if model_kind == "ollama" else n + 2
+
+
 def run_scenario(
     scenario: Scenario, out_dir: Path, model_kind: str = "stub", policy_path: Path = MSP_POLICY
 ) -> ScenarioResult:
@@ -108,8 +132,7 @@ def run_scenario(
 
     approver = _approver(approvals) if scenario.approve_gates else None
     agent = Agent(_model_for(scenario, model_kind, registry), InProcessTransport(service))
-    steps = len(scenario.script) + 2 if scenario.script else 25
-    agent.run_traced(scenario.task, max_steps=steps)
+    agent.run_traced(scenario.task, max_steps=_max_steps(scenario, model_kind))
     if approver is not None:
         approver.join(timeout=2.0)
 
