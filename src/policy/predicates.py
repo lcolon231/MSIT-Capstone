@@ -58,6 +58,27 @@ def arg_equals(call: ToolCall, params: Mapping[str, Any]) -> bool:
     return bool(call.args.get(params["arg"]) == params["value"])
 
 
+@register("args_allowlist")
+def args_allowlist(call: ToolCall, params: Mapping[str, Any]) -> bool:
+    """True iff EVERY argument key on the call is within the declared allowed set — the per-call
+    shape lock, i.e. the equivalent of JSON Schema's ``additionalProperties: false`` (issue #57,
+    securing-agentic-ai-tool-invocation control 2).
+
+    params: ``{"allowed": [<name>, ...]}``. Add this check to any ALLOW rule that must reject
+    unanticipated argument keys: an extra key makes this return False, so the ALLOW rule stops
+    matching and the call falls through to the default DENY. It bounds the *set* of keys; a key
+    the policy also inspects with another check stays constrained by that check too.
+
+    Fail-closed: a missing or non-list ``allowed`` raises, which ``schema._check_holds`` turns
+    into a non-match (the default DENY). A bare string is rejected rather than iterated as
+    characters, so ``allowed: "path"`` can never silently permit the keys p, a, t, h.
+    """
+    allowed = params["allowed"]
+    if isinstance(allowed, (str, bytes)) or not isinstance(allowed, (list, tuple, set, frozenset)):
+        raise TypeError("args_allowlist 'allowed' must be a list of argument names")
+    return set(call.args.keys()) <= set(allowed)
+
+
 @register("arg_matches")
 def arg_matches(call: ToolCall, params: Mapping[str, Any]) -> bool:
     """True iff the named string argument FULL-matches ``params['pattern']``.

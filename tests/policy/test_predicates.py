@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from src.monitor.types import CallId, Principal, SessionId, ToolCall
-from src.policy.predicates import arg_equals, arg_matches, is_destructive_cmd
+from src.policy.predicates import arg_equals, arg_matches, args_allowlist, is_destructive_cmd
 
 
 def call(tool: str = "shell", **args: object) -> ToolCall:
@@ -117,3 +117,40 @@ def test_is_destructive_cmd_defaults_arg_to_command() -> None:
 
 def test_is_destructive_cmd_false_when_arg_absent() -> None:
     assert is_destructive_cmd(call(), {"arg": "command"}) is False
+
+
+# --- args_allowlist (shape lock / additionalProperties:false) -----------------------------
+
+
+def test_args_allowlist_true_when_keys_are_subset() -> None:
+    assert args_allowlist(call(path="/tmp/x"), {"allowed": ["path", "recursive"]}) is True
+
+
+def test_args_allowlist_true_on_exact_keys() -> None:
+    assert args_allowlist(call(path="/tmp/x", recursive=True),
+                          {"allowed": ["path", "recursive"]}) is True
+
+
+def test_args_allowlist_false_on_unexpected_key() -> None:
+    assert args_allowlist(call(path="/tmp/x", sudo=True), {"allowed": ["path"]}) is False
+
+
+def test_args_allowlist_true_when_no_args_and_empty_allowed() -> None:
+    assert args_allowlist(call(), {"allowed": []}) is True
+
+
+def test_args_allowlist_false_when_args_present_but_none_allowed() -> None:
+    assert args_allowlist(call(path="/x"), {"allowed": []}) is False
+
+
+def test_args_allowlist_raises_on_missing_allowed() -> None:
+    # Fail-closed contract: a malformed config raises; schema._check_holds turns that into a
+    # non-match (default DENY). Verified end-to-end in tests/policy/test_args_shape_lock.py.
+    with pytest.raises(KeyError):
+        args_allowlist(call(path="/x"), {})
+
+
+def test_args_allowlist_raises_on_string_allowed() -> None:
+    # A bare string must not be treated as an iterable of characters ("path" -> {p,a,t,h}).
+    with pytest.raises(TypeError):
+        args_allowlist(call(p="/x"), {"allowed": "path"})
