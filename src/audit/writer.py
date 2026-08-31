@@ -1,7 +1,11 @@
-"""Append-only JSONL audit writer + argument hashing.
+"""Append-only, hash-chained JSONL audit writer + argument hashing.
 
-Append-only is a property to test (spec.md T8.3): a mid-file edit must be detectable. The
-writer never rewrites or truncates; it only appends one line per event.
+Two integrity properties, both testable (spec.md T8.3):
+  - Append-only: the writer never rewrites or truncates; it only appends one line per event.
+  - Tamper-evident: each line is chained to the previous one by ``prev_sha256`` (genesis for the
+    first) plus a monotonic ``seq``, so a mid-file edit or a deleted line is intrinsically
+    detectable by ``src.audit.chain.verify_chain`` — not only by comparison to an out-of-band copy
+    (issue #56). The chain lives in the log envelope; the event types stay pure value objects.
 """
 
 from __future__ import annotations
@@ -11,7 +15,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from src.audit.events import ApprovalResolutionEvent, AuditEvent, DecisionEvent, to_jsonl
+from src.audit.chain import envelope_line, line_sha256, resume
+from src.audit.events import ApprovalResolutionEvent, AuditEvent, DecisionEvent, to_dict
 from src.monitor.types import Decision, GateClass, ToolCall
 
 
@@ -65,14 +70,19 @@ def approval_resolution_event(
 
 
 class AuditWriter:
-    """Owns the append-only JSONL file handle. One instance per monitor process."""
+    """Owns the append-only JSONL file handle and the hash-chain head. One instance per monitor
+    process; a fresh instance re-opening an existing log resumes its chain (``chain.resume``)."""
 
     def __init__(self, path: Path) -> None:
         self._path = Path(path)
         self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._prev_sha256, self._seq = resume(self._path)
 
     def append(self, event: AuditEvent) -> None:
-        """Append exactly one event as one JSONL line. Never rewrites existing content."""
-        line = to_jsonl(event)
+        """Append exactly one event as one chained JSONL line. Never rewrites existing content;
+        the written line carries ``prev_sha256`` + ``seq`` and seeds the chain for the next."""
+        line = envelope_line(to_dict(event), self._prev_sha256, self._seq)
         with self._path.open("a", encoding="utf-8") as handle:
             handle.write(line + "\n")
+        self._prev_sha256 = line_sha256(line)
+        self._seq += 1

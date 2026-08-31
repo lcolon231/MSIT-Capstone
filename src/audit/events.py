@@ -116,10 +116,18 @@ def _encode(value: object) -> object:
     return value.value if isinstance(value, Enum) else value
 
 
+def to_dict(event: AuditEvent) -> dict[str, object]:
+    """Serialize an event to a JSON-ready dict (enums flattened to their values). Pure.
+
+    This is the single place that maps an event's dataclass fields to its on-disk shape. The
+    audit writer reuses it to wrap each record in a tamper-evidence envelope (`prev_sha256` +
+    `seq`, D-#56) without the event types themselves having to carry log-integrity fields."""
+    return {f.name: _encode(getattr(event, f.name)) for f in dataclasses.fields(event)}
+
+
 def to_jsonl(event: AuditEvent) -> str:
     """Serialize an event to a single JSONL line. Pure."""
-    payload = {f.name: _encode(getattr(event, f.name)) for f in dataclasses.fields(event)}
-    return json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
+    return json.dumps(to_dict(event), ensure_ascii=True, separators=(",", ":"))
 
 
 def from_jsonl(line: str) -> AuditEvent:
