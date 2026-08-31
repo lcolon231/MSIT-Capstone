@@ -110,15 +110,36 @@ operational one (an ever-growing single file).
     since last snapshot." The snapshot must be treated as a *cache*, re-derivable from the log, so it
     does not become a second source of truth and reintroduce the consistency problem D12.4 avoided.
   - Both must preserve **append-only semantics** on the primary log (criterion #8): snapshots are
-    auxiliary; the JSONL remains authoritative and independently replayable. If production requires
-    detection of historical edits, add hash chaining or signatures; argument hashes alone do not
-    provide log tamper-evidence.
+    auxiliary; the JSONL remains authoritative and independently replayable. Detection of historical
+    edits is now built (hash chaining, issue #56 — see R5); argument hashes alone never provided log
+    tamper-evidence, which is why the chain was added.
 - **Not solved now:** the design keeps a single un-rotated JSONL. This is acceptable at capstone
   scale and is flagged as the first thing to add if the system were productionized.
 
 ---
 
-## Cross-cutting: the in-process transport is weaker than loopback (D11)
+## R5 — Hash chain does not detect last-record truncation
+
+**Descends from:** issue #56 (each audit line carries `prev_sha256` + `seq`, chaining it to the
+previous line so `src/audit/chain.py::verify_chain` names the first broken link).
+
+**Risk.** Forward hash-chaining makes any edit, deletion, or reordering of an *interior* record
+intrinsically detectable — the next record's `prev_sha256` (and the `seq` counter) stops matching.
+It cannot, from the file alone, detect that the **last** record (or a suffix of records) was simply
+dropped: the remaining prefix is still a valid, self-consistent chain. An attacker who can write to
+the log file could therefore truncate the most recent events — precisely the ones describing an
+in-progress compromise — without breaking verification.
+
+**Design consequence.**
+- Interior tamper-evidence (the T8.3 claim: "a mid-file edit must be detectable") **is** met and
+  test-proven (`tests/audit/test_chain.py`); the append-only write path and PII-free argument
+  hashing are unchanged.
+- End-truncation is an inherent limit of a self-contained chain. Closing it requires **sealing the
+  head out-of-band**: periodically persisting the latest line hash (and record count) to a separate
+  trust domain — an append to a WORM store, a co-signed heartbeat, or the SIEM feed (§S4, issue #58),
+  which independently records the same events so a truncated tail shows up as a gap between the two.
+- Not built now: the capstone ships the chain and the offline verifier; out-of-band head-sealing is
+  documented as the next hardening step, consistent with the single-host threat model (D9).
 
 **Descends from:** D11 (two transports behind one interface; in-process retained as a documented
 scope cut).
