@@ -527,6 +527,56 @@ required D11 evidence and is not weakened or replaced.
 
 ---
 
+## D18 — Mock-tool domain renamed from banking to RMM (healthcare-MSP)
+**Decision:** The canonical mock domain and kill chain are **RMM (Remote Monitoring &
+Management)**, not banking. Tools are renamed: `get_balance → list_endpoints`,
+`list_payees → list_shares`, `add_payee → register_destination`,
+`transfer_funds → export_records`. The canonical chain becomes
+`list_endpoints → list_shares → register_destination → export_records`, modeling
+reconnaissance of a managed client's endpoints and PHI shares, registration of a new export
+destination, and exfiltration of patient records to that destination. A companion
+`disable_logging` tool is added and denied outright (anti-forensics; D8's suppression-only
+enforcement subset already covers this as a `DENY`, never a `GATE`). `files`, `network`, and
+`credentials` mock domains are unified with RMM under one policy (`policies/msp.yaml`).
+**Status:** Confirmed — reflected in the repo as of the evaluation run dated 2026-08-29
+(`results/issue-19/`, `docs/evaluation-results.md`). Logged retroactively on 2026-08-31.
+
+**What prompted it.** The case study subject is an MSP serving small healthcare practices, with
+HIPAA as the compliance frame throughout `report/phase1-chapters.md` (breach-cost figures,
+OWASP LLM01/LLM06 mapping, "the Provider's own automation" framing). A banking kill chain
+(`transfer_funds`) sits awkwardly inside that case study — it has no client, no HIPAA angle, and
+forces the report to explain an unrelated financial-services example inside an MSP/healthcare
+narrative. An RMM-domain chain is the Provider's actual product surface: technicians' agents
+drive the same RMM platform the case study already describes, and the target harm — patient-
+record exfiltration — is the harm the Problem Identification chapter already argues is the
+highest-stakes one.
+
+**Alternatives weighed:**
+- *Keep the banking domain as a generic illustrative example* — least churn, but forces the
+  report to justify an example domain the case study gives no organisational reason for.
+  **Rejected.**
+- *Run both domains in parallel* — doubles the scenario-authoring and policy-schema surface for
+  a 5-point Testing section that D3 already scoped down. **Rejected.**
+- *Rename tools/chain to RMM, keep D1–D17's mechanisms, D9's threat model, and D12's retention
+  design unchanged* — the mechanism, threat model, and retention design are domain-agnostic;
+  only tool names, the policy YAML, and the worked example needed to change. **← chosen.**
+
+**Why:** Every other confirmed decision (D1–D17) is a property of the mechanism and does not
+depend on which mock tools it is proven against. Retargeting the domain costs a rename and a
+reworked worked example, and buys a case study where the hero diagram, the threat model, and the
+cost/ROI chapter all describe the same organisation and the same harm.
+
+**Consequences:**
+- STAC-adapted red-team chains (D3) should be relabelled as RMM/exfiltration chains where the
+  mapping is natural; the "adapted from STAC" citation should note the domain substitution.
+- `docs/design/sequence-engine.md`'s worked example, `policies/rmm.yaml` / `policies/msp.yaml`,
+  and `src/tools/rmm.py` already reflect the rename — no further code change needed for D18
+  itself.
+- The Design chapter of the report should state this rationale (the paragraph above is written
+  to be liftable near-verbatim).
+
+---
+
 ## Still-open (deferred to the spec, not blocking)
 - [ ] Concrete scope-cut order if the end-of-October build deadline slips → defined in
       `tasks/spec.md` Boundaries / scope section.
