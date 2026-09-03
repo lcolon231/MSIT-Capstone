@@ -236,6 +236,9 @@ audit log records it. This is the video demo. 📸 Capture the whole flow.
 - [ ] Figure numbers and captions on all 8 diagrams; each explained in prose
 - [ ] References (APA)
 - [ ] **Verify ≥40 pages excluding title page, abstract, references** — 20% penalty
+- [ ] **Verify headcount consistency across all chapters** — the service desk is **three**
+      technicians (the Service Lead is supervisory and escalation-only, not queue-carrying);
+      confirm no chapter reverts to four (see Decision Log D19 amendment, 2026-09-03)
 - [ ] Formatting: Times New Roman, 12 pt body / 14 pt headings, double-spaced, left-justified
 - [ ] AI usage disclosure
 

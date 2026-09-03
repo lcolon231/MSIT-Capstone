@@ -591,6 +591,12 @@ estimate.
 **Design impact:** None on the build. Report-only. Creates a follow-on item for *Review and
 Continuous Improvement*: validate the thresholds against the Provider's own data.
 
+**Amendment (2026-09-03):** service desk headcount corrected to three technicians. The Service
+Lead is supervisory and escalation-only and does not carry queue work. An interim four-technician
+value used during the original D19 session was incorrect. The recovered-hour totals (448 hrs
+first year, 92 hrs recurring) are unaffected, as they derive only from cost and billable rate;
+the per-technician figures are restated at three.
+
 ---
 
 ## Still-open (deferred to the spec, not blocking)

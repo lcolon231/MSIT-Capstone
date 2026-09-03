@@ -25,6 +25,11 @@ information technology and security operations to small healthcare practices. At
 organisation's request it is referred to throughout this report as **"the Provider"**, and
 identifying details have been generalised.
 
+Operational and organisational details in this chapter are drawn from the author's direct
+professional knowledge of the organisation, generalised at its request. Where quantitative claims
+are used in the economic analysis, their basis and limitations are stated in *Limitations of
+available data*.
+
 The Provider employs eight staff, including one part-time contracted compliance consultant, and
 serves approximately thirty client practices — predominantly chiropractic, physical therapy and
 allied health clinics with between three and forty employees each.
@@ -77,9 +82,10 @@ genuinely small.
 
 Day-to-day operations centre on a ticket queue. Monitoring alerts, client email and telephone
 requests, and scheduled maintenance tasks converge into a professional services automation
-platform from which technicians work. The Provider's service desk is staffed by four technicians
-handling reactive and scheduled work across the managed client base — the overwhelming majority of
-it routine: password resets, printer and peripheral faults, software installation, disk space
+platform from which technicians work. The Provider's service desk is staffed by three technicians
+handling reactive and scheduled work across the managed client base, with the Service Lead in a
+supervisory and escalation role rather than carrying queue work. The overwhelming majority of the
+work is routine: password resets, printer and peripheral faults, software installation, disk space
 remediation, patch failures and backup verification. Precise ticket-throughput figures were not
 available for this study (see *Limitations of available data*), so the economic analysis in this
 report is expressed in recovered technician hours rather than per-ticket savings.
@@ -530,12 +536,11 @@ larger than the entire cost of this project by two orders of magnitude.
 **Against opportunity.** The pilot currently saves diagnosis time and gives it straight back
 in execution time, because the agent may not act. The control is what allows the agent to act,
 and the threshold it must clear is modest. At the Provider's $150 billable rate, the first-year
-cost of $67,200 corresponds to 448 hours of recovered technician time — roughly 2.2 hours per
-technician per week, or about 27 minutes per technician per working day, across a team of four.
-In subsequent years, with the one-time development cost retired, the recurring $13,800
-corresponds to under six minutes per technician per day. Even discounting recovered time by
-half to account for the share that is not resold or does not defer a hire, the year-one
-threshold remains under one hour per technician per day.
+cost of $67,200 corresponds to 448 hours of recovered technician time, and the recurring annual
+cost of $13,800 corresponds to 92 hours. Across a service desk of three technicians, that is
+approximately three hours per technician per week — a little over half an hour per working day
+— in the first year, falling to under eight minutes per day once the one-time development cost
+is retired.
 
 Framing the return as recovered hours rather than per-ticket savings is deliberate. It avoids
 resting the justification on a ticket-mix estimate, and it states the question in the form the
