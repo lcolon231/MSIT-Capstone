@@ -1,8 +1,13 @@
 # Third-party research and course materials
 /papers/
 /Assginments/
-/report/
 /.agents/skills/
+
+# report/: track markdown source, ignore generated output
+/report/*.docx
+/report/*.pdf
+/report/*.html
+/report/export/
 
 /MIST-Capstone/
 
