@@ -58,12 +58,15 @@ Confirmed submitted 2026-08-19; Canvas shows "Not Yet Graded". No further action
 - [x] Detailed security requirements (fail-closed, complete mediation, least privilege, audit)
 - [x] Ethical and professional considerations — **except the AI usage disclosure (yours)**
 - [x] **Estimated cost** — $53,400 one-time / $13,800 recurring at the $150/hr billable rate
-- [ ] **ROI calculation** — ticket-time arithmetic with the Provider's real ticket mix. The most
-      persuasive number in the chapter and the only quantitative gap left.
+- [x] **ROI calculation** — ~~ticket-time arithmetic with the Provider's real ticket mix~~ →
+      resolved 2026-09-03 by **reframing** the economic analysis as recovered-technician-hour
+      thresholds (Decision Log D19), **not** by obtaining the data — the Provider's PSA
+      ticket-throughput figures were unavailable. See *Limitations of available data* in
+      `report/phase1-chapters.md`.
 - **Report:** §Project Requirements Specification
 
 **Checkpoint:** ✅ ~5,250 words drafted (`report/phase1-chapters.md`), 3 diagrams rendered
-(`docs/diagrams/`). Outstanding: AI disclosure, ROI calculation, instructor sign-off.
+(`docs/diagrams/`). Outstanding: AI disclosure, instructor sign-off.
 
 ---
 
@@ -207,6 +210,10 @@ audit log records it. This is the video demo. 📸 Capture the whole flow.
 - [ ] **Compliance mapping** (`docs/compliance-mapping.md`) — **HIPAA**, NIST CSF 2.0
       (Govern/Protect/Detect), ISO/IEC 27001
 - [ ] **Review and continuous improvement** — review cadence, how audit findings feed back
+- [ ] **Validate cost/ROI thresholds against real PSA data (D19)** — carry the
+      recovered-technician-hour threshold analysis into *Review and Continuous Improvement*: once
+      the Provider's ticket volume and average handling time are available, test the thresholds
+      against actual operations rather than benchmarks.
 - [ ] Implementation §5 — challenges, changes made during implementation, lessons learned
 - [ ] Implementation §6 — final system overview, integration, final screenshots and diagrams
 

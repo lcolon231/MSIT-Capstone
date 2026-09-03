@@ -577,6 +577,22 @@ cost/ROI chapter all describe the same organisation and the same harm.
 
 ---
 
+## D19 — Economic analysis expressed as recovered-hour thresholds
+**Decision:** The report's economic analysis is expressed as recovered-technician-hour thresholds
+rather than per-ticket savings.
+**Status:** Confirmed (2026-09-03).
+
+**Why:** PSA operational data was unavailable, and the previously stated ticket-throughput figure
+did not survive a benchmark check (it implied better-than-best-in-class handling time and roughly
+three tickets per endpoint per month against an industry benchmark of under one). A threshold
+framing needs no ticket-volume input, so the justification no longer depends on an unverifiable
+estimate.
+
+**Design impact:** None on the build. Report-only. Creates a follow-on item for *Review and
+Continuous Improvement*: validate the thresholds against the Provider's own data.
+
+---
+
 ## Still-open (deferred to the spec, not blocking)
 - [ ] Concrete scope-cut order if the end-of-October build deadline slips → defined in
       `tasks/spec.md` Boundaries / scope section.
