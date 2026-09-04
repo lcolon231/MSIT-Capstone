@@ -227,3 +227,26 @@ def test_attack_that_never_reaches_the_monitor_is_not_attempted(tmp_path: Path) 
 
 def _outcome_label_for(metrics: SuiteMetrics, sid: str) -> str:
     return next(row["outcome"] for row in metrics.to_dict()["per_scenario"] if row["scenario_id"] == sid)
+
+
+def test_model_for_threads_sampling_options_into_the_live_model() -> None:
+    """The multi-seed run is only valid if --seed and --temperature actually reach the model."""
+    from src.eval.environment import fresh_environment
+    from src.eval.runner import _model_for
+
+    registry, _, _, _ = fresh_environment()
+    model = _model_for(SCENARIOS[0], "ollama", registry, seed=7, temperature=0.8)
+
+    assert model._seed == 7
+    assert model._temperature == 0.8
+
+
+def test_model_for_defaults_leave_sampling_untouched() -> None:
+    from src.eval.environment import fresh_environment
+    from src.eval.runner import _model_for
+
+    registry, _, _, _ = fresh_environment()
+    model = _model_for(SCENARIOS[0], "ollama", registry)
+
+    assert model._seed is None
+    assert model._temperature is None

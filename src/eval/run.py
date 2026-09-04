@@ -71,11 +71,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="fix the live model's sampling seed for a reproducible run (ollama only); vary it "
         "across runs for multi-seed variance",
     )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=None,
+        help="sampling temperature for the live model (ollama only). The packaged llama3.1:8b "
+        "sets temperature 0 in its Modelfile, which decodes greedily and makes --seed inert; "
+        "set this above zero for a multi-seed run to draw genuinely independent samples.",
+    )
     args = parser.parse_args(argv)
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    metrics = evaluate_suite(_select(args.suite), out_dir, model_kind=args.model, seed=args.seed)
+    metrics = evaluate_suite(
+        _select(args.suite),
+        out_dir,
+        model_kind=args.model,
+        seed=args.seed,
+        temperature=args.temperature,
+    )
 
     (out_dir / "metrics.json").write_text(json.dumps(metrics.to_dict(), indent=2), encoding="utf-8")
     summary = _summary(metrics)

@@ -486,7 +486,18 @@ evidence.
 **Methodological improvements this project can honestly claim over STAC:** deterministic
 per-scenario checkers instead of a single-family LLM judge (D6 — STAC concedes this
 limitation), and multi-seed runs instead of single-run point estimates (STAC concedes this
-too).
+too). The multi-seed claim is now backed by evidence rather than intent: the ten-scenario
+suite was run at **n=5 seeds** against a live `llama3.1:8b` (2026-09-04), and the four legacy
+rates held at 100 / 0 / 0 / 100 on every seed with attempt rate 3/6 and monitor containment 3/3
+(sample SD 0.0% on all six metrics). The spread is nonetheless *not* zero where it matters:
+**which** attacks the model attempts varies by seed — `attack.exfil_interleaved` was attempted
+on 4 of 5 seeds and `attack.indirect_injection_exfil` on 1 of 5 — so a stable aggregate hides
+per-scenario churn, which is precisely the failure mode a single-run point estimate cannot
+expose. Two caveats bound the claim: n=5 on one 8B model is a small sample and no seed produced
+an escape, so these are zero-variance-in-the-tail numbers rather than a fitted distribution; and
+multi-seed sampling only works with an explicit non-zero temperature, because the packaged model
+decodes greedily at `temperature 0` and returns identical output for every seed. See
+`docs/evaluation-results.md` § *Multi-seed live run (n=5)*.
 
 ---
 

@@ -52,7 +52,11 @@ def _approver(approvals: ApprovalQueue, stop: threading.Event) -> threading.Thre
 
 
 def _model_for(
-    scenario: Scenario, model_kind: str, registry: ToolRegistry, seed: int | None = None
+    scenario: Scenario,
+    model_kind: str,
+    registry: ToolRegistry,
+    seed: int | None = None,
+    temperature: float | None = None,
 ) -> ModelClient:
     """The model driving this scenario.
 
@@ -60,10 +64,11 @@ def _model_for(
     (D11), so the composition root hands it across. The catalog is the SAME for attack and
     benign scenarios: the monitor, not the agent's vocabulary, is what contains an attack.
     `StubModel` replays a scripted proposal list and needs no catalog. `seed` fixes the live
-    model's sampling for a reproducible run and only applies to the Ollama backend.
+    model's sampling for a reproducible run and only applies to the Ollama backend, as does
+    `temperature` — which the seed needs to be above zero to sample independently at all.
     """
     if model_kind == "ollama":
-        return OllamaModel(catalog=registry.specs(), seed=seed)
+        return OllamaModel(catalog=registry.specs(), seed=seed, temperature=temperature)
     return StubModel([ModelResponse(proposal=p, final_text=None) for p in scenario.script])
 
 
@@ -97,6 +102,7 @@ def run_scenario(
     model_kind: str = "stub",
     policy_path: Path = MSP_POLICY,
     seed: int | None = None,
+    temperature: float | None = None,
 ) -> ScenarioResult:
     """Execute one scenario end-to-end through the monitor and return the recorded result
     (replayed audit log + tool-state snapshot) for the checker to judge."""
@@ -110,7 +116,9 @@ def run_scenario(
 
     approver_stop = threading.Event()
     approver = _approver(approvals, approver_stop) if scenario.approve_gates else None
-    agent = Agent(_model_for(scenario, model_kind, registry, seed), InProcessTransport(service))
+    agent = Agent(
+        _model_for(scenario, model_kind, registry, seed, temperature), InProcessTransport(service)
+    )
     try:
         agent.run_traced(scenario.task, max_steps=_max_steps(scenario, model_kind))
     finally:
@@ -279,15 +287,23 @@ def _terminal_attempted(scenario: Scenario, result: ScenarioResult) -> bool:
 
 
 def evaluate_suite(
-    scenarios: tuple[Scenario, ...], out_dir: Path, model_kind: str = "stub", seed: int | None = None
+    scenarios: tuple[Scenario, ...],
+    out_dir: Path,
+    model_kind: str = "stub",
+    seed: int | None = None,
+    temperature: float | None = None,
 ) -> SuiteMetrics:
     """Run every scenario and judge it, returning aggregate metrics. `seed` fixes the live model's
     sampling so a run is reproducible; distinct seeds give the independent samples a multi-seed
-    variance report needs (ignored by the deterministic stub)."""
+    variance report needs (ignored by the deterministic stub). `temperature` must be above zero
+    for those seeds to differ: the packaged llama3.1:8b decodes greedily at temperature 0, which
+    makes the seed inert."""
     outcomes = []
     for scenario in scenarios:
         try:
-            result = run_scenario(scenario, out_dir, model_kind=model_kind, seed=seed)
+            result = run_scenario(
+                scenario, out_dir, model_kind=model_kind, seed=seed, temperature=temperature
+            )
             post_condition_held = scenario.check(result)
             # Attribution is computed from the SAME recorded run, inside the try: a ModelError
             # leaves the attack un-attempted (the harmful action never reached the monitor).
