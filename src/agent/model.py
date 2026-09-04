@@ -86,9 +86,21 @@ class OllamaModel:
         model: str = "llama3.1:8b",
         host: str = "http://localhost:11434",
         catalog: Sequence[ToolSpec] = (),
+        seed: int | None = None,
+        temperature: float | None = None,
     ) -> None:
         self._model = model
         self._host = host.rstrip("/")
+        # A fixed sampling seed makes one run reproducible; distinct seeds across runs give the
+        # independent samples the multi-seed variance report needs (issue #19 out-of-scope item).
+        # None preserves the prior wire format (no options block) exactly.
+        self._seed = seed
+        # The seed only makes runs *distinct* if sampling is stochastic. This Ollama build ships
+        # llama3.1:8b with `temperature 0` in its Modelfile, which decodes greedily and makes the
+        # seed inert -- five "seeds" then return one identical decode five times. Setting a
+        # temperature explicitly is what turns distinct seeds into independent samples. None
+        # leaves the model's own default in force, so existing runs are unchanged.
+        self._temperature = temperature
         # The tool vocabulary, supplied by the composition root (the agent may not import the
         # registry). Empty catalog => the old behaviour, so nothing else has to change.
         self._catalog = tuple(catalog)
@@ -101,7 +113,7 @@ class OllamaModel:
         if not history:  # a fresh run reuses the instance; drop any earlier run's names
             self._proposed.clear()
             self._args_were_objects.clear()
-        payload = {
+        payload: dict[str, Any] = {
             "model": self._model,
             "stream": False,
             "format": "json",
@@ -110,6 +122,13 @@ class OllamaModel:
                 {"role": "user", "content": self._render(task, history)},
             ],
         }
+        options: dict[str, Any] = {}
+        if self._seed is not None:
+            options["seed"] = self._seed
+        if self._temperature is not None:
+            options["temperature"] = self._temperature
+        if options:
+            payload["options"] = options
         raw = self._post("/api/chat", payload)
         content = raw.get("message", {}).get("content", "")
         response = self._parse(content)

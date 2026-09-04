@@ -27,7 +27,13 @@ from src.agent.loop import Agent
 from src.agent.model import ModelResponse, StubModel
 from src.audit.events import DecisionEvent
 from src.eval.environment import MSP_POLICY
-from src.eval.runner import ScenarioOutcome, SuiteMetrics, _outcome_label, evaluate_suite
+from src.eval.runner import (
+    ScenarioOutcome,
+    SuiteMetrics,
+    _outcome_label,
+    _terminal_attempted,
+    evaluate_suite,
+)
 from src.eval.scenario import Scenario, ScenarioResult
 from src.eval.suite import SCENARIOS
 from src.launcher import _free_port
@@ -103,6 +109,7 @@ def evaluate_suite_loopback(scenarios: tuple[Scenario, ...], out_dir: Path) -> S
                 domain=scenario.domain,
                 atlas=scenario.labels.atlas_technique.value if scenario.labels.atlas_technique else None,
                 post_condition_held=scenario.check(result),
+                terminal_attempted=_terminal_attempted(scenario, result),
                 audit_log_path=str(Path(out_dir) / "audit" / f"{scenario.scenario_id}.jsonl"),
             )
         )

@@ -6,6 +6,12 @@ Captured on 2026-08-29 with Python 3.11 on Windows/PowerShell.
   append-only JSONL audit log per scenario.
 - `live-ollama-all/` — live `llama3.1:8b` ten-scenario run with the same artifact layout.
 - `coverage.json` — machine-readable pytest coverage report for the 244-test suite.
+- `attribution/` — the same two runs re-reported with the issue #19 attempt-attribution metrics
+  (attack attempt rate + monitor containment rate). `stub-all/` is reproduced directly by the CLI
+  (`--out results/issue-19/attribution/stub-all/`); `live-ollama-all/` is **not a fresh model run**
+  — its `metrics.json`/`summary.txt` are produced by re-judging the committed 2026-08-29 live audit
+  logs (copied in under `audit/`) through the deterministic attribution checker, so the four legacy
+  rates are numerically identical to the parent `live-ollama-all/` run.
 
 Both evaluation directories were new when invoked. Do not rerun into these paths: the audit writer
 appends by design. Use a new dated or suffixed directory for another measurement.

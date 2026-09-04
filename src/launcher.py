@@ -95,7 +95,7 @@ def _free_port(host: str = "127.0.0.1") -> int:
     """Ask the OS for an unused TCP port so a demo run never collides with a stale server."""
     with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
         sock.bind((host, 0))
-        return sock.getsockname()[1]
+        return int(sock.getsockname()[1])
 
 
 @contextlib.contextmanager

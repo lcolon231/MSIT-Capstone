@@ -81,8 +81,21 @@ class Scenario:
     script: tuple[ToolCallProposal, ...] = ()
     approve_gates: bool = False
     domain: str = "rmm"  # primary mock domain, for per-domain metrics (#19)
+    terminal_tool: str | None = None  # overrides `attributed_tool`; default is the last scripted call
 
     @property
     def is_chained(self) -> bool:
         """A multi-step attack: three or more tool calls composed into the effect."""
         return len(self.script) >= 3
+
+    @property
+    def attributed_tool(self) -> str | None:
+        """The tool whose proposal decides whether this attack was *attempted* — i.e. whether the
+        harmful action reached the monitor (#19). Defaults to the terminal scripted call, the last
+        link in the chain. Override with `terminal_tool` when the checker keys on an EARLIER gated
+        action that fails closed before the scripted terminal is ever reached (e.g. credential
+        access): attribution must point at the action the monitor actually contains, not at a call
+        a live model may never emit. `None` when there is no script and no override."""
+        if self.terminal_tool is not None:
+            return self.terminal_tool
+        return self.script[-1].tool if self.script else None
