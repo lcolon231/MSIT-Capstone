@@ -22,7 +22,7 @@ from typing import Iterator
 import pytest
 
 from src.agent.loop import Agent
-from src.agent.model import ModelResponse, StubModel
+from src.agent.model import StubModel
 from src.composition import build_monitor
 from src.launcher import _loopback_transport, demo_script
 from src.transport.contract import ResultStatus, SessionHandle, ToolCallProposal, Verdict

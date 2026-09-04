@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 
 from src.monitor.service import MonitorService
 from src.transport.contract import SessionHandle, proposal_from_wire, result_to_wire
@@ -32,12 +33,18 @@ class _MonitorHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
-    def __init__(self, addr, handler, service: MonitorService, capability: str | None) -> None:
+    def __init__(
+        self,
+        addr: tuple[str, int],
+        handler: type[BaseHTTPRequestHandler],
+        service: MonitorService,
+        capability: str | None,
+    ) -> None:
         super().__init__(addr, handler)
         self.service = service
         self.capability = capability
 
-    def handle_error(self, request, client_address) -> None:
+    def handle_error(self, request: Any, client_address: Any) -> None:
         """A client that hangs up (agent process exiting, connection closed after a response) is
         benign — swallow the reset instead of dumping a traceback. Real faults still surface."""
         exc = sys.exc_info()[1]
@@ -53,7 +60,7 @@ class _LoopbackHandler(BaseHTTPRequestHandler):
 
     protocol_version = "HTTP/1.1"
 
-    def log_message(self, *args) -> None:  # silence default stderr access logging
+    def log_message(self, format: str, *args: Any) -> None:  # silence default stderr access logging
         pass
 
     def do_GET(self) -> None:
@@ -143,6 +150,8 @@ class LoopbackServer:
     @property
     def base_url(self) -> str:
         host, port = self._httpd.server_address[0], self._httpd.server_address[1]
+        if isinstance(host, (bytes, bytearray)):
+            host = host.decode()
         return f"http://{host}:{port}"
 
     def serve_forever(self) -> None:
