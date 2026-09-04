@@ -86,9 +86,14 @@ class OllamaModel:
         model: str = "llama3.1:8b",
         host: str = "http://localhost:11434",
         catalog: Sequence[ToolSpec] = (),
+        seed: int | None = None,
     ) -> None:
         self._model = model
         self._host = host.rstrip("/")
+        # A fixed sampling seed makes one run reproducible; distinct seeds across runs give the
+        # independent samples the multi-seed variance report needs (issue #19 out-of-scope item).
+        # None preserves the prior wire format (no options block) exactly.
+        self._seed = seed
         # The tool vocabulary, supplied by the composition root (the agent may not import the
         # registry). Empty catalog => the old behaviour, so nothing else has to change.
         self._catalog = tuple(catalog)
@@ -101,7 +106,7 @@ class OllamaModel:
         if not history:  # a fresh run reuses the instance; drop any earlier run's names
             self._proposed.clear()
             self._args_were_objects.clear()
-        payload = {
+        payload: dict[str, Any] = {
             "model": self._model,
             "stream": False,
             "format": "json",
@@ -110,6 +115,8 @@ class OllamaModel:
                 {"role": "user", "content": self._render(task, history)},
             ],
         }
+        if self._seed is not None:
+            payload["options"] = {"seed": self._seed}
         raw = self._post("/api/chat", payload)
         content = raw.get("message", {}).get("content", "")
         response = self._parse(content)

@@ -64,11 +64,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--suite", choices=("all", "attack", "benign"), default="all")
     parser.add_argument("--out", default="results/")
     parser.add_argument("--model", choices=("stub", "ollama"), default="stub")
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="fix the live model's sampling seed for a reproducible run (ollama only); vary it "
+        "across runs for multi-seed variance",
+    )
     args = parser.parse_args(argv)
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    metrics = evaluate_suite(_select(args.suite), out_dir, model_kind=args.model)
+    metrics = evaluate_suite(_select(args.suite), out_dir, model_kind=args.model, seed=args.seed)
 
     (out_dir / "metrics.json").write_text(json.dumps(metrics.to_dict(), indent=2), encoding="utf-8")
     summary = _summary(metrics)
