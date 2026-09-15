@@ -9,8 +9,10 @@ of proposals (deterministic replay, no live LLM) and judged by a pure post-condi
 These scenarios are STAC-informed via `research.md` (which surveys STAC,
 amazon-science/MultiTurnAgentAttack): the chain STRUCTURE follows STAC's finding that harm
 composes across individually-permitted calls, re-cast to the Provider's healthcare-MSP
-exfiltration surface. They are original constructions, not imports from the STAC repository — a
-direct review of that repo for reusable chains is a separate, open diligence step (issue #18).
+exfiltration surface. They are original constructions, not imports from the STAC repository: a
+direct review of that repo (issue #18, completed 2026-09-14 — see `research.md` "STAC repository
+review") confirmed the release ships no RMM chains and is CC BY-NC 4.0, so original constructions
+were the correct call. The chain structure is cited "adapted from" STAC.
 """
 
 from __future__ import annotations

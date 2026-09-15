@@ -147,9 +147,7 @@ blocked at `export_records`.
       `GATE`, with a separate approval-resolution audit event
 - [x] Agent output cannot flip GATE→ALLOW (`approved=true`, persuasive `reason` both ignored)
 - [x] Pending-approval queue the console can read and resolve
-- [ ] **Diagram #6 — approval gate flowchart**
-      missing: rendered PNG — only `06-approval-gate-flowchart.mmd` source exists; every
-      other diagram (#1–#5, #7, #8) has a `.png` render.
+- [x] **Diagram #6 — approval gate flowchart** (`docs/diagrams/06-approval-gate-flowchart.png`)
 
 ### T4.2 Web console — login page ⭐ rubric explicitly requires this
 - [x] Flask app, session auth, **main login page**
@@ -158,9 +156,9 @@ blocked at `export_records`.
 - [x] Policy viewer (rendered YAML rules)
 - [x] Sequence-state inspector (which chains are part-way advanced)
 - [x] **Diagram #7 — login and session flow**
-- [ ] 📸 Screenshots: login, dashboard, approve, deny, audit view
-      missing: no `docs/screenshots/` directory exists; the console is exercised in
-      `tests/web/test_console.py` but no captures have been saved.
+- [x] 📸 Screenshots: login, dashboard, approve, deny, audit view
+      captured in `docs/screenshots/` (01–06); plus policy viewer, sequence inspector,
+      viewer-role RBAC, and CLI kill-chain / eval-metrics shots (07–11).
 - **Report:** Implementation §2 User Interface, §3 Security Implementation (auth, sessions,
   role-based access, TLS note)
 
@@ -194,10 +192,12 @@ audit log records it. This is the video demo. 📸 Capture the whole flow.
 - [x] **6 attack (≥3 chained) + 4 benign** — down from 15+10
 - [x] Include one indirect-injection-via-tool-result scenario (ticket or log line carrying the
       payload — fits the MSP threat model, D9 option b)
-- [ ] Check the STAC repo (`amazon-science/MultiTurnAgentAttack`) for reusable RMM chains
+- [x] Check the STAC repo (`amazon-science/MultiTurnAgentAttack`) for reusable RMM chains
       before writing from scratch
-      note: scenarios are STAC-*informed* via `research.md`; per `src/eval/suite.py` a direct
-      review of that repo for reusable chains remains an open diligence step (issue #18).
+      done 2026-09-14: reviewed the published repo (issue #18). The release ships **no RMM
+      task pair** (only airline / api_key-calendar / bank_transfer / expenditure_accounting /
+      spam_filter) and is CC BY-NC 4.0 — no drop-in reusable chain; scenarios kept as original,
+      STAC-structure-informed constructions. See `research.md` "STAC repository review".
 
 ### T5.3 Eval runner + metrics — criterion #6
 - [x] `python -m src.eval.run --suite all --out results/` emits false-approval / false-block /
