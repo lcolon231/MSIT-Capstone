@@ -15,6 +15,10 @@ Three enforcement layers, plus an append-only audit log and an operator web cons
 See `tasks/spec.md` for the full specification, `docs/design/` for the architecture, and
 `docs/evaluation-results.md` for the latest live-model evaluation results.
 
+Operations documentation: [user manual](docs/user-manual.md), [training](docs/training.md),
+[FAQ](docs/faq.md), [maintenance plan](docs/maintenance-plan.md), and
+[compliance mapping](docs/compliance-mapping.md).
+
 ## Commands
 
 ```powershell
