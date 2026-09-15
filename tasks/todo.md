@@ -147,9 +147,7 @@ blocked at `export_records`.
       `GATE`, with a separate approval-resolution audit event
 - [x] Agent output cannot flip GATE→ALLOW (`approved=true`, persuasive `reason` both ignored)
 - [x] Pending-approval queue the console can read and resolve
-- [ ] **Diagram #6 — approval gate flowchart**
-      missing: rendered PNG — only `06-approval-gate-flowchart.mmd` source exists; every
-      other diagram (#1–#5, #7, #8) has a `.png` render.
+- [x] **Diagram #6 — approval gate flowchart** (`docs/diagrams/06-approval-gate-flowchart.png`)
 
 ### T4.2 Web console — login page ⭐ rubric explicitly requires this
 - [x] Flask app, session auth, **main login page**
