@@ -192,10 +192,12 @@ audit log records it. This is the video demo. 📸 Capture the whole flow.
 - [x] **6 attack (≥3 chained) + 4 benign** — down from 15+10
 - [x] Include one indirect-injection-via-tool-result scenario (ticket or log line carrying the
       payload — fits the MSP threat model, D9 option b)
-- [ ] Check the STAC repo (`amazon-science/MultiTurnAgentAttack`) for reusable RMM chains
+- [x] Check the STAC repo (`amazon-science/MultiTurnAgentAttack`) for reusable RMM chains
       before writing from scratch
-      note: scenarios are STAC-*informed* via `research.md`; per `src/eval/suite.py` a direct
-      review of that repo for reusable chains remains an open diligence step (issue #18).
+      done 2026-09-14: reviewed the published repo (issue #18). The release ships **no RMM
+      task pair** (only airline / api_key-calendar / bank_transfer / expenditure_accounting /
+      spam_filter) and is CC BY-NC 4.0 — no drop-in reusable chain; scenarios kept as original,
+      STAC-structure-informed constructions. See `research.md` "STAC repository review".
 
 ### T5.3 Eval runner + metrics — criterion #6
 - [x] `python -m src.eval.run --suite all --out results/` emits false-approval / false-block /

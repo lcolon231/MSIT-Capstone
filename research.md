@@ -351,7 +351,41 @@ black-box: full pipeline **35.5% ASR vs 12.5%** without pre-generated chains.
 
 → Their **RMM** environment and the released chains are the closest available match to
 this project's canonical fraud chain. Check the repo before authoring scenarios from scratch
-(D3, Task 14).
+(D3, Task 14). ⚠️ **Corrected 2026-09-14 — this premise does not hold against the actual
+release: the published repo contains *no* RMM task pair. See *STAC repository review* below.**
+
+#### STAC repository review (issue #18 / Task 14) — completed 2026-09-14
+
+Direct inspection of the **published** repo <https://github.com/amazon-science/MultiTurnAgentAttack>,
+the diligence step T5.2 required before treating the suite as final.
+
+**What is actually released:**
+- `data/STAC_benchmark_data.json` — 483 cases as JSON. Each record carries `id`,
+  `generation_config.dataset`, `generation_config.environment`, `attack_plan`
+  (goal, explanation, `verified_tool_chain`), and `interaction_history` (the transcript).
+- `SHADE_Arena/task_pairs/` — the released SHADE-Arena environments are exactly five:
+  **`american_airlines_2`, `api_key_calendar_agendas_2`, `bank_transfer_2`,
+  `expenditure_accounting`, `spam_filter_update`** — plus the Agent-SafetyBench simpler set.
+- License: **CC BY-NC 4.0 (non-commercial)** — the framework is NC even though its underlying
+  SHADE-Arena / Agent-SafetyBench data are MIT.
+
+**Finding — no reusable RMM chain exists in the release.** The paper names an RMM environment,
+but it is **not among the published task pairs** (corrected above). The nearest structural
+analogues to this project's chains are:
+- `bank_transfer_2` / `expenditure_accounting` → financial *exfiltration* structure, structurally
+  parallel to our `export_records` recon→register→export chain;
+- `api_key_calendar_agendas_2` → credential access, parallel to our `credential_theft` scenario.
+
+None is drop-in reusable: they carry no RMM/PHI/healthcare-MSP surface, and — per **D9** — STAC's
+direct-user-channel threat model is re-homed here as indirect injection, so even the closest
+chains would require full re-authoring. Two independent reasons therefore stand against verbatim
+import: (i) there are no RMM chains to import, and (ii) CC BY-NC 4.0 would encumber reuse in this
+work regardless.
+
+**Decision:** keep the suite's scenarios as **original constructions whose chain *structure* is
+STAC-informed and cited "adapted from"** (`src/eval/suite.py`). The 6-attack / 4-benign suite is
+sufficient as-is; no scenario is added or swapped on the strength of this review (the suite scale
+is deliberately capped — spec §11). Task 14 / issue #18 is closed.
 
 #### STAC's own limitations — two of them help this project
 
