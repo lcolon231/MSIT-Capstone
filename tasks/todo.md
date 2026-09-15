@@ -158,9 +158,9 @@ blocked at `export_records`.
 - [x] Policy viewer (rendered YAML rules)
 - [x] Sequence-state inspector (which chains are part-way advanced)
 - [x] **Diagram #7 — login and session flow**
-- [ ] 📸 Screenshots: login, dashboard, approve, deny, audit view
-      missing: no `docs/screenshots/` directory exists; the console is exercised in
-      `tests/web/test_console.py` but no captures have been saved.
+- [x] 📸 Screenshots: login, dashboard, approve, deny, audit view
+      captured in `docs/screenshots/` (01–06); plus policy viewer, sequence inspector,
+      viewer-role RBAC, and CLI kill-chain / eval-metrics shots (07–11).
 - **Report:** Implementation §2 User Interface, §3 Security Implementation (auth, sessions,
   role-based access, TLS note)
 
