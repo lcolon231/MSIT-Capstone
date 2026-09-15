@@ -73,39 +73,39 @@ Confirmed submitted 2026-08-19; Canvas shows "Not Yet Graded". No further action
 ## Phase 2 — Monitor core
 
 ### T2.1 Repo scaffold + quality gates
-- [ ] `pyproject.toml` with pinned deps (`pytest`, `pytest-cov`, `ruff`, `mypy`, `pyyaml`,
+- [x] `pyproject.toml` with pinned deps (`pytest`, `pytest-cov`, `ruff`, `mypy`, `pyyaml`,
       `flask`), `[dev]` extra, Python 3.11
-- [ ] `src/` layout per spec §6, mirrored `tests/`, `.gitignore`
-- [ ] `pytest -q` collects cleanly; `ruff` and `mypy` exit clean
+- [x] `src/` layout per spec §6, mirrored `tests/`, `.gitignore`
+- [x] `pytest -q` collects cleanly; `ruff` and `mypy` exit clean
 - **Report:** Implementation §1 System Setup and Installation
 
 ### T2.2 Core value types
-- [ ] `Verdict` enum, frozen `Decision` (verdict, `rule_id`, reason), `ToolCall`
-- [ ] `evaluate(call, policy, state) -> Decision` — pure, fail-closed default
-- [ ] Test: `Decision` is frozen; `evaluate` mutates nothing
+- [x] `Verdict` enum, frozen `Decision` (verdict, `rule_id`, reason), `ToolCall`
+- [x] `evaluate(call, policy, state) -> Decision` — pure, fail-closed default
+- [x] Test: `Decision` is frozen; `evaluate` mutates nothing
 
 ### T2.3 Policy schema + YAML loader (D2)
-- [ ] Field-frozen trigger / check / enforce schema
-- [ ] Loader rejects unknown fields and malformed policy with clear errors
-- [ ] `policies/rmm.yaml` loads and validates
+- [x] Field-frozen trigger / check / enforce schema
+- [x] Loader rejects unknown fields and malformed policy with clear errors
+- [x] `policies/rmm.yaml` loads and validates
 - **Report:** code snippet of a policy rule — good Implementation content
 
 ### T2.4 Per-call verdict engine — criterion #2
-- [ ] Matching rule returns ALLOW/DENY; no match → `DENY "no matching policy (fail-closed)"`
-- [ ] Unknown tool → DENY; empty/None policy → all DENY
-- [ ] Every `Decision` carries a non-null `rule_id`
+- [x] Matching rule returns ALLOW/DENY; no match → `DENY "no matching policy (fail-closed)"`
+- [x] Unknown tool → DENY; empty/None policy → all DENY
+- [x] Every `Decision` carries a non-null `rule_id`
 
 ### T2.5 Argument-aware matching — criterion #3
-- [ ] `shell("ls")` ALLOW, `shell("rm -rf /")` DENY
-- [ ] Anchored matchers resist `${IFS}`, base64, unicode homoglyphs, `../` traversal,
+- [x] `shell("ls")` ALLOW, `shell("rm -rf /")` DENY
+- [x] Anchored matchers resist `${IFS}`, base64, unicode homoglyphs, `../` traversal,
       look-alike domains (`attacker@example.com.evil.com`)
-- [ ] Fuzz test: no dangerous-arg class silently ALLOWs
+- [x] Fuzz test: no dangerous-arg class silently ALLOWs
 
 ### T2.6 Audit log — JSONL writer + replay — criterion #8
-- [ ] One JSONL record per decision: actor, tool, `rule_id`, verdict, reason, arg hash
-- [ ] Replay reconstructs every decision of a run
-- [ ] Append-only property test
-- [ ] **Diagram #5 — data flow for a single tool call including the audit write**
+- [x] One JSONL record per decision: actor, tool, `rule_id`, verdict, reason, arg hash
+- [x] Replay reconstructs every decision of a run
+- [x] Append-only property test
+- [x] **Diagram #5 — data flow for a single tool call including the audit write**
 
 **Checkpoint:** mediated → verdicted → logged → replayable. ≥80% coverage on `src/monitor`
 and `src/policy`. 📸 Screenshot the CLI showing verdicts.
@@ -115,23 +115,23 @@ and `src/policy`. 📸 Screenshot the CLI showing verdicts.
 ## Phase 3 — Sequence engine (hero result)
 
 ### T3.1 Sequence state machine (D1)
-- [ ] `sequence.step(call, state)` advances named chains; returns DENY/GATE or None
-- [ ] Session state explicit and inspectable; transitions deterministic
-- [ ] Unit tests for the transition table incl. duplicate/idempotent steps
+- [x] `sequence.step(call, state)` advances named chains; returns DENY/GATE or None
+- [x] Session state explicit and inspectable; transitions deterministic
+- [x] Unit tests for the transition table incl. duplicate/idempotent steps
 
 ### T3.2 RMM mock domain + mediated dispatch — criterion #1
-- [ ] `list_endpoints`, `list_shares`, `register_destination`, `export_records` over in-process state
-- [ ] No tool executes without a `Decision`; unknown tool denied, not passed through
-- [ ] Malformed tool call still yields a `Decision` — never crash-open
+- [x] `list_endpoints`, `list_shares`, `register_destination`, `export_records` over in-process state
+- [x] No tool executes without a `Decision`; unknown tool denied, not passed through
+- [x] Malformed tool call still yields a `Decision` — never crash-open
 
 ### T3.3 Canonical chain wired — criterion #4
-- [ ] `list_endpoints → list_shares → register_destination → export_records` blocked at sequence level while
+- [x] `list_endpoints → list_shares → register_destination → export_records` blocked at sequence level while
       no step is denied by per-call policy: first three `ALLOW`, transfer would ordinarily `GATE`,
       and the full sequence `DENY` takes precedence (assert both layers)
-- [ ] Evasion: interleaving benign calls, reorder/partial chains, session-reset abuse,
+- [x] Evasion: interleaving benign calls, reorder/partial chains, session-reset abuse,
       cross-session smear
-- [ ] **False-block guard:** a legitimate register-then-export must NOT be blocked
-- [ ] **Diagram #4 — sequence state machine** (hero diagram; poster centrepiece)
+- [x] **False-block guard:** a legitimate register-then-export must NOT be blocked
+- [x] **Diagram #4 — sequence state machine** (hero diagram; poster centrepiece)
 - **Report:** Design §sequence evaluation; Implementation §2
 
 **Checkpoint:** the demo that carries the video and the poster. 📸 Screenshot the chain being
@@ -142,33 +142,41 @@ blocked at `export_records`.
 ## Phase 4 — Gate, console, agent loop
 
 ### T4.1 Approval gate (D5)
-- [ ] file-delete, network-send, data-export, credential-access each → `GATE`
-- [ ] No approval / timeout prevents execution (`ResultStatus.DENIED`); original verdict remains
+- [x] file-delete, network-send, data-export, credential-access each → `GATE`
+- [x] No approval / timeout prevents execution (`ResultStatus.DENIED`); original verdict remains
       `GATE`, with a separate approval-resolution audit event
-- [ ] Agent output cannot flip GATE→ALLOW (`approved=true`, persuasive `reason` both ignored)
-- [ ] Pending-approval queue the console can read and resolve
+- [x] Agent output cannot flip GATE→ALLOW (`approved=true`, persuasive `reason` both ignored)
+- [x] Pending-approval queue the console can read and resolve
 - [ ] **Diagram #6 — approval gate flowchart**
+      missing: rendered PNG — only `06-approval-gate-flowchart.mmd` source exists; every
+      other diagram (#1–#5, #7, #8) has a `.png` render.
 
 ### T4.2 Web console — login page ⭐ rubric explicitly requires this
-- [ ] Flask app, session auth, **main login page**
-- [ ] Dashboard: live decision feed from the audit log
-- [ ] Pending approvals: working approve / deny
-- [ ] Policy viewer (rendered YAML rules)
-- [ ] Sequence-state inspector (which chains are part-way advanced)
-- [ ] **Diagram #7 — login and session flow**
+- [x] Flask app, session auth, **main login page**
+- [x] Dashboard: live decision feed from the audit log
+- [x] Pending approvals: working approve / deny
+- [x] Policy viewer (rendered YAML rules)
+- [x] Sequence-state inspector (which chains are part-way advanced)
+- [x] **Diagram #7 — login and session flow**
 - [ ] 📸 Screenshots: login, dashboard, approve, deny, audit view
+      missing: no `docs/screenshots/` directory exists; the console is exercised in
+      `tests/web/test_console.py` but no captures have been saved.
 - **Report:** Implementation §2 User Interface, §3 Security Implementation (auth, sessions,
   role-based access, TLS note)
 
 ### T4.3 Agent loop + pluggable model client (D4)
-- [ ] Model interface; Ollama/Llama-3.1-8B adapter + stub/recorded model for CI
-- [ ] Integration test: every tool call mediated; gate blocks on no approval
-- [ ] `python -m src.agent.run --task "..."` runs end to end
-- [ ] **Diagram #8 — deployment / network zones**
+- [x] Model interface; Ollama/Llama-3.1-8B adapter + stub/recorded model for CI
+- [x] Integration test: every tool call mediated; gate blocks on no approval
+- [x] `python -m src.agent.run --task "..."` runs end to end
+      note: the end-to-end runner is `python -m src.launcher --task "..."` (relocated from
+      `src.agent.run` to honour the D11/D14 import boundary — see the `src/launcher.py`
+      docstring). The `--task` CLI, `--model stub|ollama` and `--transport inprocess|loopback`
+      all work; only the literal module path above is stale.
+- [x] **Diagram #8 — deployment / network zones**
 
 ### T4.4 Remaining mock domains
-- [ ] files, network, creds over in-process state, no real egress
-- [ ] Each has at least one GATE-class operation
+- [x] files, network, creds over in-process state, no real egress
+- [x] Each has at least one GATE-class operation
 
 **Checkpoint:** agent proposes a transfer → monitor gates → operator approves in the browser →
 audit log records it. This is the video demo. 📸 Capture the whole flow.
@@ -178,16 +186,18 @@ audit log records it. This is the video demo. 📸 Capture the whole flow.
 ## Phase 5 — Evaluation (scoped small — 5 rubric pts)
 
 ### T5.1 Scenario format + deterministic checker (D6)
-- [ ] Scenario carries benign/attack tag, label, and a binary post-condition checker
-- [ ] Checker inspects recorded tool state / log only — **no LLM judge**
-- [ ] Same scenario twice → identical verdict
+- [x] Scenario carries benign/attack tag, label, and a binary post-condition checker
+- [x] Checker inspects recorded tool state / log only — **no LLM judge**
+- [x] Same scenario twice → identical verdict
 
 ### T5.2 Scenario suite — revised criterion #7
-- [ ] **6 attack (≥3 chained) + 4 benign** — down from 15+10
-- [ ] Include one indirect-injection-via-tool-result scenario (ticket or log line carrying the
+- [x] **6 attack (≥3 chained) + 4 benign** — down from 15+10
+- [x] Include one indirect-injection-via-tool-result scenario (ticket or log line carrying the
       payload — fits the MSP threat model, D9 option b)
 - [ ] Check the STAC repo (`amazon-science/MultiTurnAgentAttack`) for reusable RMM chains
       before writing from scratch
+      note: scenarios are STAC-*informed* via `research.md`; per `src/eval/suite.py` a direct
+      review of that repo for reusable chains remains an open diligence step (issue #18).
 
 ### T5.3 Eval runner + metrics — criterion #6
 - [x] `python -m src.eval.run --suite all --out results/` emits false-approval / false-block /
@@ -202,14 +212,16 @@ audit log records it. This is the video demo. 📸 Capture the whole flow.
 
 ## Phase 6 — Operations documentation (25 rubric pts)
 
-- [ ] **User manual** — basic and advanced operator tasks (`docs/user-manual.md`)
-- [ ] **Training material** — quick-start / onboarding walkthrough (`docs/training.md`)
-- [ ] **FAQ and troubleshooting tips** (`docs/faq.md`)
-- [ ] **Maintenance plan** (`docs/maintenance-plan.md`) — patch schedule, performance monitoring
+- [x] **User manual** — basic and advanced operator tasks (`docs/user-manual.md`)
+- [x] **Training material** — quick-start / onboarding walkthrough (`docs/training.md`)
+- [x] **FAQ and troubleshooting tips** (`docs/faq.md`)
+- [x] **Maintenance plan** (`docs/maintenance-plan.md`) — patch schedule, performance monitoring
       (Prometheus/Grafana), security audits, helpdesk/ticketing, refresher training, feedback loop
-- [ ] **Compliance mapping** (`docs/compliance-mapping.md`) — **HIPAA**, NIST CSF 2.0
+- [x] **Compliance mapping** (`docs/compliance-mapping.md`) — **HIPAA**, NIST CSF 2.0
       (Govern/Protect/Detect), ISO/IEC 27001
 - [ ] **Review and continuous improvement** — review cadence, how audit findings feed back
+      missing: no standalone Review & Continuous Improvement doc/section yet; only referenced
+      forward from `report/phase1-chapters.md`.
 - [ ] **Validate cost/ROI thresholds against real PSA data (D19)** — carry the
       recovered-technician-hour threshold analysis into *Review and Continuous Improvement*: once
       the Provider's ticket volume and average handling time are available, test the thresholds
