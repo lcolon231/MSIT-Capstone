@@ -163,8 +163,8 @@ time.
 
 ### 4.8 Log out
 
-Visit `/logout` (or the console's logout link). This clears the session and returns you to the
-login page.
+Click **log out** in the console header. This clears the session and returns you to the login
+page. Sessions also end on their own after 30 minutes without activity or 8 hours after login.
 
 ---
 

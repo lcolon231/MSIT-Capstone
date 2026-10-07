@@ -24,8 +24,9 @@ already exists. The intervals are local planning targets, not statutory deadline
   [`MonitorService`](../src/monitor/service.py). The four implemented gate classes are data
   export, file delete, network send, and credential access.
 - The [console](../src/web/views.py) provides authenticated views and operator/viewer roles.
-  `python -m src.web.run` starts a **seeded demonstration**; it does not attach to the separate
-  monitor launched by `src.launcher`.
+  `python -m src.web.run` starts a **seeded demonstration**. For live operation,
+  `python -m src.monitor_server --console-port 5000` (with `OP_PASS` set) serves the console from
+  the monitor process itself, on the same approval queue the loopback endpoint blocks on.
 - [JSONL audit writing](../src/audit/writer.py), [event replay](../src/audit/replay.py), and an
   [offline hash-chain verifier](../src/audit/chain.py) support inspection of recorded activity.
 - The [evaluation package](evaluation-results.md) supplies repeatable synthetic scenarios and

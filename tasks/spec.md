@@ -87,8 +87,8 @@ what the call is — never by what the agent says about it. Three enforcement la
 1. **Per-call, argument-aware policy** — declarative YAML; no matching rule means DENY.
 2. **Stateful sequence evaluation** — a kill-chain state machine that recognises named
    malicious chains whose individual steps all pass per-call checks.
-3. **Human approval gate** — four irreversible classes (file delete, network send, fund
-   transfer, credential access) route to a human via a web console; no approval means DENY.
+3. **Human approval gate** — four irreversible classes (file delete, network send, data
+   export, credential access — D5) route to a human via a web console; no approval means DENY.
 
 Plus an **append-only JSONL audit log** with a traceable `rule_id` on every decision, and a
 **web console** for operators (login, live decision feed, pending approvals, policy viewer,

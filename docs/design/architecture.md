@@ -383,7 +383,7 @@ performed in this pass.
 | `src/transport/client.py` | The agent-facing protocol still exposes `open_session` and accepts a session handle on `dispatch`; D14 requires trusted-launcher creation and a session-bound, dispatch-only agent capability. |
 | `src/transport/loopback.py` | Client and server share one module, so importing the client imports `MonitorService`; §3.3a requires a physical client/server split for the primary loopback path. |
 | `src/transport/contract.py` + `src/monitor/types.py` | The types do not yet give malformed/unknown/unresolved proposals a representable monitor-side form, although complete mediation requires those inputs to produce a `Decision`. |
-| `src/audit/events.py` | `ChainProgressEvent` stores one opaque binding-map hash. Replay needs named binding digests so it can reconstruct and compare bindings without plaintext. |
+| `src/audit/events.py` | **Resolved:** `ChainProgressEvent.bindings` now maps each binding name to its digest, and the service writes one per chain advance, so replay (D15) restores bindings without plaintext. |
 | `src/monitor/sequence.py` | `advance` does not receive `Policy`, even though the policy owns the modeled transition table; its near-miss docstring also still describes a sequence `GATE`, now stale under D16. |
 | `src/tools/` | Tool implementations currently construct transport `ToolResult`s; the target boundary has tools return raw mock outcomes and lets the monitor construct the agent-visible result. |
 | `tests/test_import_graph.py` | The required agent-closure assertion exists and is complete. A loopback-client closure assertion would strengthen packaging evidence, but is not substituted for the required agent test. |
