@@ -29,6 +29,7 @@ from src.monitor.types import (
 from src.policy.loader import load_policy
 from src.transport.contract import Verdict
 from src.web import ConsoleContext, Role, UserStore, create_app
+from tests.web.conftest import csrf
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RMM = REPO_ROOT / "policies" / "rmm.yaml"
@@ -110,7 +111,7 @@ def test_login_then_dashboard_shows_decisions(client: FlaskClient) -> None:
 
 def test_logout_clears_session(client: FlaskClient) -> None:
     login(client, "op", "op-pass")
-    client.get("/logout")
+    client.post("/logout", data={"csrf_token": csrf(client)})
     assert client.get("/").status_code == 302  # back to needing login
 
 
@@ -120,7 +121,7 @@ def test_logout_clears_session(client: FlaskClient) -> None:
 def test_operator_can_approve_and_it_resolves_the_queue(client: FlaskClient, context: ConsoleContext) -> None:
     login(client, "op", "op-pass")
     approval_id = context.approvals.list_pending()[0].approval_id
-    resp = client.post(f"/approvals/{approval_id}/approve")
+    resp = client.post(f"/approvals/{approval_id}/approve", data={"csrf_token": csrf(client)})
     assert resp.status_code == 302
     assert context.approvals.list_pending() == ()  # no longer pending
     assert context.approvals.get(approval_id).status.value == "approved"
@@ -143,7 +144,7 @@ def test_viewer_cannot_see_action_buttons(client: FlaskClient) -> None:
 def test_viewer_is_forbidden_from_resolving(client: FlaskClient, context: ConsoleContext) -> None:
     login(client, "viewer", "viewer-pass")
     approval_id = context.approvals.list_pending()[0].approval_id
-    resp = client.post(f"/approvals/{approval_id}/approve")
+    resp = client.post(f"/approvals/{approval_id}/approve", data={"csrf_token": csrf(client)})
     assert resp.status_code == 403
     assert context.approvals.list_pending()  # still pending — the viewer could not act
 

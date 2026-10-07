@@ -29,6 +29,9 @@ from src.transport.contract import ResultStatus, SessionHandle, ToolCallProposal
 from src.transport.loopback import LoopbackError, LoopbackTransport, wait_until_ready
 from src.transport.loopback_server import LoopbackServer
 
+# Real sockets / subprocesses / the whole eval suite: slow, end-to-end.
+pytestmark = pytest.mark.integration
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RMM = REPO_ROOT / "policies" / "rmm.yaml"
 

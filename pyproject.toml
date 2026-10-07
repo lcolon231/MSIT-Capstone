@@ -32,6 +32,10 @@ include = ["src*"]
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
+markers = [
+    "integration: end-to-end through real components (sockets, subprocesses, Flask + monitor); deselect with -m 'not integration'",
+    "real_fsync: do not stub the audit writer's fsync for this test",
+]
 
 [tool.coverage.run]
 source = ["src"]
