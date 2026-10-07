@@ -14,7 +14,15 @@ rules:
       - predicate: is_destructive_cmd
         params: { arg: command }
 
+  # Shape-locked allow: only a call whose ONLY argument is a string `command` can match.
+  # Anything else (extra keys, a list/dict/number command, no command at all) falls through to
+  # the fail-closed default DENY — the allow never relies on the deny rule above catching it.
   - rule_id: shell.allow
     tool: shell
     trigger: action
     enforce: allow
+    checks:
+      - predicate: args_allowlist
+        params: { allowed: [command] }
+      - predicate: arg_matches
+        params: { arg: command, pattern: '.*' }

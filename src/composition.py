@@ -9,17 +9,38 @@ the agent there would be meaningless and against the D11 layering.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from src.audit.writer import AuditWriter
 from src.monitor.gate import ApprovalQueue
 from src.monitor.service import MonitorService
 from src.monitor.session import RetentionConfig, SessionRegistry
-from src.policy.loader import load_policy
+from src.policy.loader import PolicyError, load_policy
+from src.policy.schema import Policy
 from src.tools.base import ToolRegistry
 from src.tools.rmm import EndpointState, register_rmm
 
 PRINCIPAL = "client-primary"  # the session-bound principal MonitorService assigns by default
+
+_log = logging.getLogger(__name__)
+
+
+def load_policy_or_deny_all(policy_path: Path) -> Policy:
+    """Load the policy, or fall back to `Policy.deny_all()` on any load failure.
+
+    interface-contracts.md §4.5: "The composition root substitutes an immutable deny-all policy
+    on any load failure." A monitor that cannot read its policy must still run and DENY every
+    call — a crashed monitor leaves callers (e.g. over loopback) with connection errors instead
+    of auditable decisions.
+    """
+    try:
+        return load_policy(policy_path)
+    except PolicyError as exc:
+        # Narrow on purpose: PolicyError is the loader's complete failure contract, so any other
+        # exception is a programming error and should surface rather than masquerade as deny-all.
+        _log.error("policy load failed; running DENY-ALL (fail-closed): %s", exc)
+        return Policy.deny_all()
 
 
 def build_monitor(
@@ -39,7 +60,7 @@ def build_monitor(
     sessions = SessionRegistry(audit, RetentionConfig())
     approvals = ApprovalQueue()
     return MonitorService(
-        load_policy(policy_path),
+        load_policy_or_deny_all(policy_path),
         registry,
         audit,
         sessions,
