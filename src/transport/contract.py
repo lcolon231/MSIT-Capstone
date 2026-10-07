@@ -29,7 +29,7 @@ class ResultStatus(Enum):
 
     EXECUTED = "executed"  # verdict ALLOW (or GATE then approved); tool ran
     DENIED = "denied"  # verdict DENY, or GATE that was denied / timed out
-    GATED_PENDING = "gated_pending"  # GATE awaiting operator; no result yet
+    TOOL_FAILED = "tool_failed"  # permitted, and the tool ran but raised; no payload
 
 
 @dataclass(frozen=True)

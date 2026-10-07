@@ -11,12 +11,14 @@ an agent or a call's arguments (see gate.py).
 
 from __future__ import annotations
 
+import hmac
+import secrets
 from dataclasses import dataclass
 from enum import Enum
 from functools import wraps
 from typing import Any, Callable, TypeVar
 
-from flask import abort, redirect, session, url_for
+from flask import abort, current_app, redirect, request, session, url_for
 from flask.typing import ResponseReturnValue
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -53,16 +55,87 @@ class UserStore:
 
 
 def current_role() -> Role | None:
-    raw = session.get("role")
-    return Role(raw) if raw is not None else None
+    """The signed-in role, or None. An unrecognized value is treated as no role (→ 403), never
+    as an error page — the request is refused either way, but cleanly."""
+    try:
+        return Role(session.get("role"))
+    except ValueError:
+        return None
+
+
+# --- session lifetime ---------------------------------------------------------------------
+#
+# Two limits, both checked server-side against an injectable clock (app.config["CLOCK"]):
+#   * idle    — no authenticated request for IDLE_TIMEOUT_S (default 30 min, matching the
+#               monitor's own idle expiry, D12.3);
+#   * absolute — AUTH_MAX_AGE_S after login (default 8 h), however active the session is.
+# An expired session is cleared and treated exactly like an anonymous one.
+
+DEFAULT_IDLE_TIMEOUT_S = 30 * 60
+DEFAULT_ABSOLUTE_TIMEOUT_S = 8 * 60 * 60
+CSRF_FIELD = "csrf_token"
+
+
+def _now() -> float:
+    clock: Callable[[], float] = current_app.config["CLOCK"]
+    return clock()
+
+
+def start_session(username: str, role: Role) -> None:
+    """Begin a fresh authenticated session: new identity, new CSRF token, both timers reset.
+    Clearing first prevents session fixation (nothing planted before login survives)."""
+    session.clear()
+    session.permanent = True
+    now = _now()
+    session["user"] = username
+    session["role"] = role.value
+    session["login_at"] = now
+    session["seen_at"] = now
+    session["csrf"] = secrets.token_urlsafe(32)
+
+
+def _authenticated() -> bool:
+    """True iff the session belongs to a signed-in user that has not expired. Refreshes the
+    idle timer on success; clears the session on expiry."""
+    if "user" not in session:
+        return False
+    now = _now()
+    try:
+        login_at = float(session["login_at"])
+        seen_at = float(session["seen_at"])
+    except (KeyError, TypeError, ValueError):
+        session.clear()  # a session without valid timestamps is not a session
+        return False
+    idle = current_app.config["IDLE_TIMEOUT_S"]
+    absolute = current_app.config["ABSOLUTE_TIMEOUT_S"]
+    if now - seen_at > idle or now - login_at > absolute:
+        session.clear()
+        return False
+    session["seen_at"] = now
+    return True
+
+
+def csrf_token() -> str:
+    """The current session's CSRF token, for templates ("" when signed out)."""
+    token = session.get("csrf")
+    return token if isinstance(token, str) else ""
+
+
+def _csrf_ok() -> bool:
+    expected = session.get("csrf")
+    supplied = request.form.get(CSRF_FIELD, "")
+    return isinstance(expected, str) and bool(expected) and hmac.compare_digest(expected, supplied)
+
+
+# --- decorators ---------------------------------------------------------------------------
 
 
 def login_required(view: F) -> F:
-    """Redirect unauthenticated requests to the login page."""
+    """Redirect unauthenticated or expired requests to the login page."""
 
     @wraps(view)
     def wrapped(*args: Any, **kwargs: Any) -> ResponseReturnValue:
-        if "user" not in session:
+        if not _authenticated():
             return redirect(url_for("console.login"))
         return view(*args, **kwargs)  # type: ignore[no-any-return]
 
@@ -70,15 +143,18 @@ def login_required(view: F) -> F:
 
 
 def requires_role(role: Role) -> Callable[[F], F]:
-    """Gate a view behind a specific role. Authenticated-but-wrong-role gets 403; anonymous is
-    redirected to login."""
+    """Gate a view behind a specific role. Anonymous or expired → login redirect;
+    authenticated-but-wrong-role → 403; a state-changing request without the session's CSRF
+    token → 403 (checked AFTER authentication, so it never leaks whether a session exists)."""
 
     def decorator(view: F) -> F:
         @wraps(view)
         def wrapped(*args: Any, **kwargs: Any) -> ResponseReturnValue:
-            if "user" not in session:
+            if not _authenticated():
                 return redirect(url_for("console.login"))
             if current_role() is not role:
+                abort(403)
+            if request.method == "POST" and not _csrf_ok():
                 abort(403)
             return view(*args, **kwargs)  # type: ignore[no-any-return]
 

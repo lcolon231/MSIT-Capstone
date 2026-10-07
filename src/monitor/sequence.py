@@ -89,6 +89,20 @@ def advance(call: ToolCall, policy: Policy, state: SequenceState) -> SequenceSta
     return SequenceState(progress=progress)
 
 
+def node_ranks(policy: Policy) -> dict[str, dict[str, int]]:
+    """chain name -> {node: depth}, where depth is how many steps along the chain the node sits
+    (first step's target = 1). Pure. Replay uses it to fold history WITHOUT regressing: a later
+    event at a shallower node (e.g. another session redoing recon) never undoes deeper progress.
+    Passed to the audit layer as data, so audit never imports policy (import contract §5)."""
+    ranks: dict[str, dict[str, int]] = {}
+    for chain in policy.sequence.chains:
+        order: dict[str, int] = {}
+        for depth, step in enumerate(chain.steps, start=1):
+            order.setdefault(step.to_node, depth)
+        ranks[chain.name] = order
+    return ranks
+
+
 def subject_of(call: ToolCall) -> SubjectKey:
     """The (session_id, principal) subject key a call is tracked under (D12.1). Pure."""
     return SubjectKey(session_id=call.session_id, principal=call.principal)

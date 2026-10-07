@@ -24,7 +24,15 @@ from flask.typing import ResponseReturnValue
 from src.audit.events import ApprovalResolutionEvent, AuditEvent, DecisionEvent
 from src.audit.replay import replay
 from src.monitor.gate import ApprovalId
-from src.web.auth import Role, UserStore, login_required, requires_role
+from src.web.auth import (
+    CSRF_FIELD,
+    Role,
+    UserStore,
+    current_role,
+    login_required,
+    requires_role,
+    start_session,
+)
 from src.web.context import ConsoleContext
 
 bp = Blueprint("console", __name__)
@@ -56,18 +64,20 @@ def login() -> ResponseReturnValue:
         user = _users().verify(request.form.get("username", ""), request.form.get("password", ""))
         if user is None:
             return render_template("login.html", error="Invalid username or password"), 401
-        session.clear()
-        session["user"] = user.username
-        session["role"] = user.role.value
+        start_session(user.username, user.role)
         return redirect(url_for("console.dashboard"))
     if "user" in session:
         return redirect(url_for("console.dashboard"))
     return render_template("login.html", error=None)
 
 
-@bp.route("/logout")
+@bp.route("/logout", methods=["POST"])
 def logout() -> ResponseReturnValue:
-    session.clear()
+    """POST-only and CSRF-checked, so another site cannot force an operator out. A request
+    without the session's token leaves the session alone."""
+    expected = session.get("csrf")
+    if isinstance(expected, str) and request.form.get(CSRF_FIELD) == expected:
+        session.clear()
     return redirect(url_for("console.login"))
 
 
@@ -102,7 +112,7 @@ def audit() -> ResponseReturnValue:
 @login_required
 def approvals() -> ResponseReturnValue:
     pending = _context().approvals.list_pending()
-    can_act = session.get("role") == Role.OPERATOR.value
+    can_act = current_role() is Role.OPERATOR
     return render_template("approvals.html", pending=pending, can_act=can_act)
 
 

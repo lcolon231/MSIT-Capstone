@@ -23,7 +23,15 @@ import time
 import uuid
 from typing import Any, Mapping
 
-from src.audit.writer import AuditWriter, approval_resolution_event, decision_event
+from src.audit.events import ChainProgressEvent
+from src.audit.writer import (
+    AuditWriter,
+    approval_resolution_event,
+    chain_progress_event,
+    decision_event,
+    operator_digest,
+    tool_execution_event,
+)
 from src.monitor import sequence
 from src.monitor.gate import ApprovalQueue, ApprovalStatus, classify_gate
 from src.monitor.session import SessionRegistry
@@ -39,6 +47,10 @@ from src.transport.contract import (
     ToolResult,
     Verdict,
 )
+
+# The implicit start node every chain leaves on its first step (sequence-engine.md §4). The
+# engine represents it as "no progress" (None); the audit log names it explicitly.
+IDLE_NODE = "S0_IDLE"
 
 
 class MonitorService:
@@ -66,6 +78,8 @@ class MonitorService:
         self._sessions = sessions
         self._approvals = approvals
         self._approval_timeout_s = approval_timeout_s
+        # Chain node depths, derived once from the immutable policy, for D15 replay seeding.
+        self._node_ranks = sequence.node_ranks(policy)
         # Opaque session token -> monitor-owned (session id, resolved principal). The agent
         # holds only the token and cannot choose or forge the principal (D12.2).
         self._bindings: dict[str, tuple[SessionId, Principal]] = {}
@@ -100,7 +114,7 @@ class MonitorService:
         session_id, principal = binding
 
         call = self._enrich(proposal, session_id, principal)
-        state = self._sessions.state_for(session_id, principal)
+        state = self._sessions.state_for(session_id, principal, self._node_ranks)
         decision = evaluate(call, self._policy, state)
         self._audit.append(decision_event(call, decision))
 
@@ -132,13 +146,17 @@ class MonitorService:
             )
         pending = self._approvals.enqueue(call, gate_class)
         status = self._approvals.await_resolution(pending.approval_id, self._approval_timeout_s)
+        record = self._approvals.get(pending.approval_id)
+        resolver = record.operator if record is not None else None
         self._audit.append(
             approval_resolution_event(
                 call,
                 gate_class,
                 str(pending.approval_id),
                 status.value,
-                operator=None,  # operator identity is attached by the console on resolve (#14)
+                # Trusted identity from the console's authenticated resolve — never from the
+                # call — recorded as a digest (interface-contracts.md §4.7). None on timeout.
+                operator=operator_digest(resolver) if resolver is not None else None,
             )
         )
         if status is ApprovalStatus.APPROVED:
@@ -168,12 +186,24 @@ class MonitorService:
                     "allowed tool has no implementation (fail-closed)",
                 ),
             )
-        payload = tool.execute(call.args, str(principal))
+        try:
+            payload = tool.execute(call.args, str(principal))
+        except Exception:
+            # The call was permitted and the tool ran, but failed: report TOOL_FAILED with the
+            # permitting decision and no payload. State does NOT advance — only a successful
+            # execution may move a chain forward (interface-contracts.md §4.4).
+            self._audit.append(tool_execution_event(call, "failed"))
+            return _result(ResultStatus.TOOL_FAILED, decision)
+        # Commit live state BEFORE the post-execution audit writes: if those writes fail, the
+        # live chain still records this step, so detection is never weakened (the backstop then
+        # reports the audit failure as a DENY).
         next_state = sequence.advance(call, self._policy, state)
         if next_state is not state:
             self._sessions.commit(session_id, next_state)
-        status = ResultStatus.EXECUTED
-        return _result(status, decision, payload)
+        self._audit.append(tool_execution_event(call, "executed", payload))
+        for event in _chain_progress_events(call, state, next_state):
+            self._audit.append(event)
+        return _result(ResultStatus.EXECUTED, decision, payload)
 
     def _enrich(
         self, proposal: ToolCallProposal, session_id: SessionId, principal: Principal
@@ -191,6 +221,28 @@ class MonitorService:
             call_id=CallId(uuid.uuid4().hex),
             timestamp=time.time(),
         )
+
+
+def _chain_progress_events(
+    call: ToolCall, before: SequenceState, after: SequenceState
+) -> list[ChainProgressEvent]:
+    """One ChainProgressEvent per chain whose node or bindings changed for the call's subject —
+    the first-class progress records replay folds to seed a new session (D12.4, D15)."""
+    if after is before:
+        return []
+    key = sequence.subject_of(call)
+    previous = {p.chain: p for p in before.for_subject(key)}
+    events = []
+    for progress in after.for_subject(key):
+        old = previous.get(progress.chain)
+        if old is not None and (old.node, dict(old.bindings)) == (
+            progress.node,
+            dict(progress.bindings),
+        ):
+            continue
+        from_node = old.node if old is not None else IDLE_NODE
+        events.append(chain_progress_event(call, from_node, progress))
+    return events
 
 
 def _result(status: ResultStatus, decision: Decision, payload: Any = None) -> ToolResult:
