@@ -12,12 +12,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any, Mapping
 
 from src.audit.chain import envelope_line, line_sha256, resume
-from src.audit.events import ApprovalResolutionEvent, AuditEvent, DecisionEvent, to_dict
-from src.monitor.types import Decision, GateClass, ToolCall
+from src.audit.events import (
+    ApprovalResolutionEvent,
+    AuditEvent,
+    ChainProgressEvent,
+    DecisionEvent,
+    ToolExecutionEvent,
+    to_dict,
+)
+from src.monitor.types import ChainProgress, Decision, GateClass, ToolCall
 
 
 def hash_arguments(args: Mapping[str, Any]) -> str:
@@ -25,6 +33,19 @@ def hash_arguments(args: Mapping[str, Any]) -> str:
     plaintext (criterion #8) — this gives tamper-evidence and PII-free logging."""
     canonical = json.dumps(args, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+# Indirection so the test suite can skip the (slow on Windows) fsync without touching `os`
+# process-wide; production always calls the real os.fsync.
+_fsync = os.fsync
+
+
+def operator_digest(username: str) -> str:
+    """The trusted operator identity as it appears in the audit log: a SHA-256 digest of the
+    console username (interface-contracts.md §4.7 — "trusted operator digest"). Deterministic,
+    so an auditor holding the user list can attribute a resolution without the log carrying
+    account names in plaintext."""
+    return hashlib.sha256(f"operator:{username}".encode("utf-8")).hexdigest()
 
 
 def decision_event(
@@ -69,12 +90,44 @@ def approval_resolution_event(
     )
 
 
+def tool_execution_event(
+    call: ToolCall, status: str, payload: Any = None, timestamp: float | None = None
+) -> ToolExecutionEvent:
+    """Record what a permitted call's tool did: "executed" (with a payload digest) or "failed"."""
+    return ToolExecutionEvent(
+        call_id=str(call.call_id),
+        session_id=call.session_id,
+        principal=call.principal,
+        tool=call.tool,
+        status=status,
+        result_sha256=hash_arguments({"result": payload}) if status == "executed" else None,
+        timestamp=call.timestamp if timestamp is None else timestamp,
+    )
+
+
+def chain_progress_event(
+    call: ToolCall, from_node: str, progress: ChainProgress, timestamp: float | None = None
+) -> ChainProgressEvent:
+    """Record one chain moving (or re-binding) for the call's subject. `progress.bindings`
+    already holds canonical digests (sequence.py never stores plaintext), copied by name."""
+    return ChainProgressEvent(
+        session_id=call.session_id,
+        principal=call.principal,
+        chain=progress.chain,
+        from_node=from_node,
+        to_node=progress.node,
+        bindings=dict(progress.bindings),
+        timestamp=call.timestamp if timestamp is None else timestamp,
+    )
+
+
 class AuditWriter:
     """Owns the append-only JSONL file handle and the hash-chain head. One instance per monitor
     process; a fresh instance re-opening an existing log resumes its chain (``chain.resume``)."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, durable: bool = True) -> None:
         self._path = Path(path)
+        self._durable = durable
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._prev_sha256, self._seq = resume(self._path)
 
@@ -84,5 +137,15 @@ class AuditWriter:
         line = envelope_line(to_dict(event), self._prev_sha256, self._seq)
         with self._path.open("a", encoding="utf-8") as handle:
             handle.write(line + "\n")
+            if self._durable:
+                # "Durably appended before any permitted tool executes" (interface-contracts.md
+                # §1.7): push the record past the OS cache, not just the Python buffer.
+                handle.flush()
+                _fsync(handle.fileno())
         self._prev_sha256 = line_sha256(line)
         self._seq += 1
+
+    @property
+    def path(self) -> Path:
+        """The log this writer appends to (read by replay to seed new sessions, D15)."""
+        return self._path

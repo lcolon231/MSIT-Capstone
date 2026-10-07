@@ -19,10 +19,12 @@
       <td>
         <form class="inline" method="post"
               action="{{ url_for('console.resolve_approval', approval_id=p.approval_id, decision='approve') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="approve" type="submit">Approve</button>
         </form>
         <form class="inline" method="post"
               action="{{ url_for('console.resolve_approval', approval_id=p.approval_id, decision='deny') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="deny" type="submit">Deny</button>
         </form>
       </td>

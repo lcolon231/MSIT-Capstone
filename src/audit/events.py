@@ -11,6 +11,7 @@ import dataclasses
 import json
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Mapping
 
 from src.monitor.types import GateClass, Principal, SessionId
 from src.transport.contract import Verdict
@@ -22,6 +23,7 @@ class EventType(Enum):
     EVICTION = "eviction"
     SESSION_LIFECYCLE = "session_lifecycle"
     APPROVAL_RESOLUTION = "approval_resolution"
+    TOOL_EXECUTION = "tool_execution"
 
 
 @dataclass(frozen=True)
@@ -43,7 +45,11 @@ class DecisionEvent:
 
 @dataclass(frozen=True)
 class ChainProgressEvent:
-    """A sequence-state advance, sufficient to replay the automaton (D12.4)."""
+    """A sequence-state advance, sufficient to replay the automaton (D12.4).
+
+    `bindings` maps each binding NAME to the canonical SHA-256 DIGEST of the bound value — never
+    the plaintext — so replay can restore the exact binding a later step is compared against
+    (interface-contracts.md §4.7). `from_node == to_node` records a re-bind on a repeated step."""
 
     type: EventType = field(default=EventType.CHAIN_PROGRESS, init=False)
     session_id: SessionId
@@ -51,7 +57,7 @@ class ChainProgressEvent:
     chain: str
     from_node: str
     to_node: str
-    bindings_sha256: str
+    bindings: Mapping[str, str]
     timestamp: float
 
 
@@ -98,12 +104,29 @@ class ApprovalResolutionEvent:
     timestamp: float
 
 
+@dataclass(frozen=True)
+class ToolExecutionEvent:
+    """What happened when a PERMITTED call reached its tool: "executed" or "failed". Written after
+    the DecisionEvent, so the log distinguishes "allowed and ran" from "allowed but the tool
+    raised". `result_sha256` digests the payload (None on failure) — never plaintext."""
+
+    type: EventType = field(default=EventType.TOOL_EXECUTION, init=False)
+    call_id: str
+    session_id: SessionId
+    principal: Principal
+    tool: str
+    status: str  # "executed" | "failed"
+    result_sha256: str | None
+    timestamp: float
+
+
 AuditEvent = (
     DecisionEvent
     | ChainProgressEvent
     | EvictionEvent
     | SessionLifecycleEvent
     | ApprovalResolutionEvent
+    | ToolExecutionEvent
 )
 
 
@@ -113,7 +136,20 @@ class AuditFormatError(ValueError):
 
 
 def _encode(value: object) -> object:
-    return value.value if isinstance(value, Enum) else value
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, Mapping):
+        return dict(value)
+    return value
+
+
+def _digest_map(raw: object) -> dict[str, str]:
+    """Validate a name -> digest mapping read back from the log (untrusted input)."""
+    if not isinstance(raw, dict) or not all(
+        isinstance(k, str) and isinstance(v, str) for k, v in raw.items()
+    ):
+        raise ValueError("bindings must map binding names to digest strings")
+    return dict(raw)
 
 
 def to_dict(event: AuditEvent) -> dict[str, object]:
@@ -161,7 +197,7 @@ def from_jsonl(line: str) -> AuditEvent:
                 chain=raw["chain"],
                 from_node=raw["from_node"],
                 to_node=raw["to_node"],
-                bindings_sha256=raw["bindings_sha256"],
+                bindings=_digest_map(raw["bindings"]),
                 timestamp=raw["timestamp"],
             )
         if event_type == EventType.EVICTION.value:
@@ -193,6 +229,20 @@ def from_jsonl(line: str) -> AuditEvent:
                 gate_class=GateClass(raw["gate_class"]),
                 resolution=raw["resolution"],
                 operator=operator if operator is None else str(operator),
+                timestamp=raw["timestamp"],
+            )
+        if event_type == EventType.TOOL_EXECUTION.value:
+            result = raw["result_sha256"]
+            status = raw["status"]
+            if status not in ("executed", "failed"):
+                raise ValueError(f"unknown tool execution status {status!r}")
+            return ToolExecutionEvent(
+                call_id=raw["call_id"],
+                session_id=SessionId(raw["session_id"]),
+                principal=Principal(raw["principal"]),
+                tool=raw["tool"],
+                status=status,
+                result_sha256=result if result is None else str(result),
                 timestamp=raw["timestamp"],
             )
     except (KeyError, ValueError, TypeError) as exc:

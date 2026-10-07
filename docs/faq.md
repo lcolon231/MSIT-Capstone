@@ -83,7 +83,9 @@ Set `PORT` and/or `HOST` before launching: `$env:PORT = "8080"; python -m src.we
 **Q: Why does the console show only observed history and not live agent calls?**
 `python -m src.web.run` starts the console over a **demo** monitor with seeded history and one
 pending approval — it's built for local demonstration and screenshots. To see a specific run's
-decisions, point `MONITOR_AUDIT` at that run's audit log.
+decisions, point `MONITOR_AUDIT` at that run's audit log. To act on **live** gated calls, run
+`python -m src.monitor_server --console-port 5000` (set `OP_PASS` first): that console shares the
+running monitor's approval queue.
 
 **Q: Where do I read the evaluation results?**
 [`docs/evaluation-results.md`](evaluation-results.md). The committed reference run scored **100%

@@ -196,10 +196,14 @@ def is_destructive_cmd(call: ToolCall, params: Mapping[str, Any]) -> bool:
     unicode homoglyphs) — e.g. `rm -rf /`. `shell("ls")` is False.
 
     params: ``{"arg": <name>}`` (defaults to ``"command"``).
+
+    Fail-closed: a missing or non-string argument is treated as destructive. This predicate
+    sits in DENY rules, where "no match" means "not blocked" — so an input it cannot inspect
+    (e.g. ``command=["rm", "-rf", "/"]``) must match, not fall through to a later ALLOW.
     """
     raw = call.args.get(params.get("arg", "command"))
     if not isinstance(raw, str):
-        return False
+        return True
     canonical = _canonicalize(raw)
     tokens = canonical.split(" ")
     if _rm_is_destructive(tokens):

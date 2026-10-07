@@ -133,7 +133,13 @@ def test_every_result_carries_a_non_null_rule_id(tmp_path: Path) -> None:
 def test_each_handled_call_is_audited(tmp_path: Path) -> None:
     audit_path = tmp_path / "audit.jsonl"
     service, _state, session = build_service(tmp_path)
-    before = audit_path.read_text(encoding="utf-8").count("\n")
+    before = _decisions(audit_path)
     service.handle(propose("list_endpoints"), session)
-    after = audit_path.read_text(encoding="utf-8").count("\n")
-    assert after == before + 1  # exactly one DecisionEvent appended
+    assert _decisions(audit_path) == before + 1  # exactly one DecisionEvent appended
+
+
+def _decisions(path: Path) -> int:
+    from src.audit.events import DecisionEvent
+    from src.audit.replay import replay
+
+    return sum(isinstance(e, DecisionEvent) for e in replay(path))

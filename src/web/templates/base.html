@@ -65,7 +65,11 @@
       <a href="{{ url_for('console.audit') }}">Audit</a>
     </nav>
     <span class="who">{{ session.get('user') }}<span class="role">{{ session.get('role') }}</span>
-      · <a href="{{ url_for('console.logout') }}" style="color:#cdd9ec;">log out</a></span>
+      · <form class="inline" method="post" action="{{ url_for('console.logout') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" style="background:none;border:0;padding:0;color:#cdd9ec;
+                  text-decoration:underline;cursor:pointer;font:inherit;">log out</button>
+        </form></span>
   </header>
   {% endif %}
   <main>

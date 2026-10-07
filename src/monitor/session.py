@@ -14,10 +14,12 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass
+from typing import Callable, Mapping
 
 from src.audit.events import SessionLifecycleEvent
+from src.audit.replay import reconstruct_sequence_state
 from src.audit.writer import AuditWriter
-from src.monitor.types import SequenceState, SessionId, SubjectKey
+from src.monitor.types import Principal, SequenceState, SessionId, SubjectKey
 
 
 @dataclass(frozen=True)
@@ -37,17 +39,24 @@ class SessionRegistry:
     per-subject eviction, and idle expiry are the durability layer wired in issue #12 (D12.4/5).
     """
 
-    def __init__(self, audit: AuditWriter, config: RetentionConfig) -> None:
+    def __init__(
+        self,
+        audit: AuditWriter,
+        config: RetentionConfig,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
         self._audit = audit
         self._config = config
+        self._clock = clock
         self._state = SequenceState()
+        self._seeded: set[SubjectKey] = set()
 
     def open_session(self) -> SessionId:
         """Mint a fresh monitor-assigned session id (D12.2). Agent cannot influence the value."""
         session_id = SessionId(f"s-{uuid.uuid4().hex}")
         self._audit.append(
             SessionLifecycleEvent(
-                session_id=session_id, principal=None, action="open", timestamp=time.time()
+                session_id=session_id, principal=None, action="open", timestamp=self._clock()
             )
         )
         return session_id
@@ -57,9 +66,36 @@ class SessionRegistry:
         sequence inspector to show which chains are part-way advanced (#14)."""
         return self._state
 
-    def state_for(self, session_id: SessionId, principal: str) -> SequenceState:
-        """Return current sequence state. (#12 seeds a cold session from the principal's audit
-        history via replay; here the live process-wide snapshot is returned directly.)"""
+    def state_for(
+        self,
+        session_id: SessionId,
+        principal: str,
+        node_ranks: Mapping[str, Mapping[str, int]] | None = None,
+    ) -> SequenceState:
+        """Return current sequence state, seeding a cold subject from history first (D15).
+
+        The first time a (session, principal) subject is seen with no live progress, the
+        principal's within-lookback chain progress is replayed from the audit log and re-keyed
+        to this session — so rotating to a new session inherits the prefix instead of erasing
+        it. Seeding happens once per subject; a corrupt log raises (the service then denies)
+        and is retried on the next call rather than being remembered as "seeded".
+        `node_ranks` (from `sequence.node_ranks`) is required to seed; without it, no seeding."""
+        key = SubjectKey(session_id=session_id, principal=Principal(principal))
+        if node_ranks is None or key in self._seeded:
+            return self._state
+        if key not in self._state.progress:
+            history = reconstruct_sequence_state(
+                self._audit.path,
+                Principal(principal),
+                session_id,
+                now=self._clock(),
+                lookback_s=self._config.lookback_s,
+                node_ranks=node_ranks,
+            )
+            inherited = history.for_subject(key)
+            if inherited:
+                self._state = SequenceState(progress={**self._state.progress, key: inherited})
+        self._seeded.add(key)
         return self._state
 
     def commit(self, session_id: SessionId, next_state: SequenceState) -> None:
@@ -86,6 +122,6 @@ class SessionRegistry:
         self._state = SequenceState(progress=progress)
         self._audit.append(
             SessionLifecycleEvent(
-                session_id=session_id, principal=None, action="end", timestamp=time.time()
+                session_id=session_id, principal=None, action="end", timestamp=self._clock()
             )
         )

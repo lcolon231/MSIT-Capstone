@@ -78,7 +78,7 @@ authenticated operator resolving it here — the agent cannot do it, and neither
 
 ### Step 5 — See the role boundary
 
-Log out (`/logout`), then log back in as the **viewer** (`viewer` / `viewer-pass`). Open
+Log out (the **log out** button in the header), then log back in as the **viewer** (`viewer` / `viewer-pass`). Open
 **Approvals** again: same list, **no buttons**. The viewer role is read-only; a viewer who tries
 to force the approve/deny action gets a **403**. Log back in as `operator` when you're done.
 
@@ -95,7 +95,7 @@ python -m src.launcher --task "remediate ticket 4821" --model stub
 ```
 
 You'll see four steps print. Each line shows the **execution status** (`EXECUTED` / `DENIED` /
-`GATED_PENDING`), then the **verdict** and **`rule_id`** in brackets:
+`TOOL_FAILED`), then the **verdict** and **`rule_id`** in brackets:
 
 ```
 [1] list_endpoints()                             -> EXECUTED  [allow/rmm.list_endpoints.allow]

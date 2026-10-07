@@ -167,3 +167,29 @@ requires the loopback deployment. One caveat specific to the current loopback bu
 TLS-free plaintext HTTP on `127.0.0.1` and authenticates session creation with a bootstrap
 capability only — it assumes a trustworthy local loopback interface (no hostile co-tenant process
 binding or sniffing localhost), which is consistent with the single-host threat model (D9).
+
+---
+
+## R7 — Replay seeding keeps one binding per chain depth
+
+**Descends from:** D15 (a new session is seeded by folding the principal's within-lookback
+`ChainProgressEvent`s from every session) and D12.1 (live state stays keyed per session).
+
+**Risk.** `reconstruct_sequence_state` folds history per chain and never regresses to a shallower
+node, so a session redoing recon cannot erase deeper progress. At *equal* depth, though, the newest
+event wins: if two concurrent sessions for one principal each register a different destination,
+a freshly seeded third session inherits only the most recent binding. An export from that new
+session to the *older* destination is then a near-miss (an ordinary D5 gate) rather than a
+sequence DENY.
+
+**Design consequence.**
+- The sessions that registered each destination keep their own live binding, so each one is still
+  blocked from exporting to its own destination; the gap applies only to a third, newly seeded
+  session, and only while it sends to the older binding.
+- The export is still gated, so a human sees it; it is not silently allowed.
+- **Not solved:** holding a *set* of bindings per depth would close it, at the cost of a schema
+  change to `ChainProgress` (a single mapping today). Recorded as future work.
+- Related operational note: the eval runner writes one log per scenario id and the writer appends,
+  so re-running the suite into the same output directory within the lookback window seeds the second
+  run from the first. No current scenario's verdicts change on rerun (checked), but evaluations that
+  must be independent should use a fresh output directory.

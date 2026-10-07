@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from src.audit.writer import AuditWriter, decision_event, hash_arguments
 from src.monitor.types import GateClass
 from src.monitor.verdict import default_deny
@@ -54,3 +56,51 @@ def test_writer_creates_parent_directory(tmp_path: Path) -> None:
     path = tmp_path / "nested" / "dir" / "audit.jsonl"
     AuditWriter(path).append(decision_ev())
     assert path.exists()
+
+
+# --- durability (fsync) -------------------------------------------------------------------
+
+
+@pytest.mark.real_fsync
+def test_writer_fsyncs_every_append_when_durable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import src.audit.writer as writer_mod
+
+    synced: list[int] = []
+    monkeypatch.setattr(writer_mod, "_fsync", synced.append)
+    writer = AuditWriter(tmp_path / "a.jsonl")
+    writer.append(decision_ev())
+    writer.append(decision_ev())
+    assert len(synced) == 2 and all(isinstance(fd, int) for fd in synced)
+
+
+@pytest.mark.real_fsync
+def test_writer_default_fsync_is_the_real_os_fsync() -> None:
+    import os
+
+    import src.audit.writer as writer_mod
+
+    assert writer_mod._fsync is os.fsync
+
+
+@pytest.mark.real_fsync
+def test_writer_not_durable_skips_fsync(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import src.audit.writer as writer_mod
+
+    synced: list[int] = []
+    monkeypatch.setattr(writer_mod, "_fsync", synced.append)
+    AuditWriter(tmp_path / "a.jsonl", durable=False).append(decision_ev())
+    assert synced == []
+
+
+def test_writer_exposes_its_log_path(tmp_path: Path) -> None:
+    assert AuditWriter(tmp_path / "a.jsonl").path == tmp_path / "a.jsonl"
+
+
+def test_operator_digest_is_stable_and_not_plaintext() -> None:
+    from src.audit.writer import operator_digest
+
+    assert operator_digest("op") == operator_digest("op") != operator_digest("op2")
+    assert "op" not in operator_digest("op")
+    assert len(operator_digest("op")) == 64

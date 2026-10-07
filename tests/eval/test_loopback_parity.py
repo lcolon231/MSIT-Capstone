@@ -9,8 +9,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from src.eval.loopback_parity import compare
 from src.eval.suite import SCENARIOS
+
+# Real sockets / subprocesses / the whole eval suite: slow, end-to-end.
+pytestmark = pytest.mark.integration
 
 _SUBSET_IDS = {"attack.exfil_full_chain", "benign.approved_export_to_baa_destination"}
 _SUBSET = tuple(s for s in SCENARIOS if s.scenario_id in _SUBSET_IDS)

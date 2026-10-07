@@ -11,6 +11,8 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from src.agent.model import ModelError
 from src.audit.writer import decision_event
 from src.eval.runner import ScenarioOutcome, SuiteMetrics, _approver, evaluate_suite
@@ -19,6 +21,9 @@ from src.eval.suite import SCENARIOS
 from src.monitor.gate import ApprovalQueue
 from src.monitor.types import CallId, Decision, Principal, SessionId, ToolCall
 from src.transport.contract import Verdict
+
+# Real sockets / subprocesses / the whole eval suite: slow, end-to-end.
+pytestmark = pytest.mark.integration
 
 
 def make_call(tool: str, **args: object) -> ToolCall:

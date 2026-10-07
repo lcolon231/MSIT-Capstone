@@ -9,6 +9,7 @@ from src.audit.events import (
     DecisionEvent,
     EvictionEvent,
     SessionLifecycleEvent,
+    ToolExecutionEvent,
 )
 from src.monitor.types import CallId, GateClass, Principal, SessionId, ToolCall
 from src.transport.contract import Verdict
@@ -49,7 +50,7 @@ def chain_ev() -> ChainProgressEvent:
         chain="recon_register_exfil",
         from_node="registered_destination",
         to_node="drained",
-        bindings_sha256="cafebabe",
+        bindings={"registered_destination": "cafebabe"},
         timestamp=2.0,
     )
 
@@ -71,4 +72,16 @@ def lifecycle_ev() -> SessionLifecycleEvent:
         principal=Principal("client-1"),
         action="open",
         timestamp=4.0,
+    )
+
+
+def tool_exec_ev(status: str = "executed", result: str | None = "beef") -> ToolExecutionEvent:
+    return ToolExecutionEvent(
+        call_id="c1",
+        session_id=SessionId("s1"),
+        principal=Principal("client-1"),
+        tool="list_shares",
+        status=status,
+        result_sha256=result,
+        timestamp=3.0,
     )

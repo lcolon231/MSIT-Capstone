@@ -115,8 +115,15 @@ def test_is_destructive_cmd_defaults_arg_to_command() -> None:
     assert is_destructive_cmd(call(command="rm -rf /"), {}) is True
 
 
-def test_is_destructive_cmd_false_when_arg_absent() -> None:
-    assert is_destructive_cmd(call(), {"arg": "command"}) is False
+def test_is_destructive_cmd_true_when_arg_absent() -> None:
+    # Fail-closed: an argument the predicate cannot inspect counts as destructive, so the
+    # DENY rule it guards still fires instead of falling through to a later ALLOW.
+    assert is_destructive_cmd(call(), {"arg": "command"}) is True
+
+
+@pytest.mark.parametrize("value", [["rm", "-rf", "/"], {"c": "ls"}, b"ls", None, 42])
+def test_is_destructive_cmd_true_for_non_string_arg(value: object) -> None:
+    assert is_destructive_cmd(call(command=value), {"arg": "command"}) is True
 
 
 # --- args_allowlist (shape lock / additionalProperties:false) -----------------------------

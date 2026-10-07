@@ -51,6 +51,7 @@ class PendingApproval:
     arg_digest: str
     created_at: float
     status: ApprovalStatus = ApprovalStatus.PENDING
+    operator: str | None = None  # the console user who resolved it; None while pending/timed out
 
 
 def classify_gate(call: ToolCall) -> GateClass | None:
@@ -113,7 +114,7 @@ class ApprovalQueue:
                 raise KeyError(approval_id)
             if record.status is ApprovalStatus.PENDING:
                 status = ApprovalStatus.APPROVED if approved else ApprovalStatus.DENIED
-                record = replace(record, status=status)
+                record = replace(record, status=status, operator=operator)
                 self._pending[approval_id] = record
                 event = self._events.get(approval_id)
             else:

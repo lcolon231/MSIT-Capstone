@@ -196,11 +196,7 @@ Users assigned to a read-only role also cannot approve or deny gated requests.
 
 ### Step 5 — Verify Role-Based Access Control
 
-Log out by navigating to:
-
-```text
-/logout
-```
+Log out using the **log out** button in the console header.
 
 Authenticate using the viewer account:
 
