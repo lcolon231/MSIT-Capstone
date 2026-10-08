@@ -4,7 +4,7 @@ title: "Figure 8 — Deployment & network zones: agent, monitor, operator"
 flowchart LR
     subgraph UZ["Untrusted zone — agent process"]
         direction TB
-        LLM["<b>Model client (D4)</b><br/>Ollama · Llama-3.1-8B<br/><i>the ONLY LLM in the system</i>"]
+        LLM["<b>Model client (D4)</b><br/>Stub (default) or Ollama · Llama-3.1-8B<br/><i>the ONLY model client in the system</i>"]
         LOOP["<b>Agent loop</b><br/>propose → observe → repeat<br/><i>sees only redacted ToolResult</i>"]
         TXC["<b>Transport client</b><br/><i>imports only contract/client</i>"]
         LLM --> LOOP --> TXC

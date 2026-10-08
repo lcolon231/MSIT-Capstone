@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operator console: login, session &amp; role-based approval flow</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #f5f5f5;
+      --color-ink:    #2d3142;
+      --color-muted:  #4f5d75;
+      --color-accent: #eb6c36;
+      --font-sans:  'Geist', system-ui, sans-serif;
+      --font-serif: 'Instrument Serif', serif;
+      --font-mono:  'Geist Mono', ui-monospace, monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+    .frame { max-width: 1000px; width: 100%; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+    svg { width: 100%; min-width: 820px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Figure 7 · Operator console session</p>
+    <h1>Operator console: login, session &amp; role-based approval flow</h1>
+
+    <svg viewBox="0 0 1200 1220" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="07-login-session-flow-title 07-login-session-flow-desc">
+      <title id="07-login-session-flow-title">Console login, session, and role-based approval flow</title>
+      <desc id="07-login-session-flow-desc">Sequence across an operator, browser, Flask console, user store, and approval queue over four phases: authentication with an invalid-versus-valid branch that sets a signed session cookie carrying a fresh CSRF token and login time, a check on every subsequent request that the session exists and has not expired (30 minutes idle or 8 hours absolute), a role- and CSRF-gated approval action that resolves an approval in the shared queue, and a CSRF-checked POST logout that clears the session.</desc>
+
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+        <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+        <marker id="arrow-accent" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#eb6c36"/></marker>
+      </defs>
+
+      <!-- Background -->
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+      <!-- ===================== PHASE BANDS ===================== -->
+      <rect x="54" y="120" width="1092" height="20" rx="2" fill="rgba(45,49,66,0.045)"/>
+      <text x="64" y="134" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">1 · AUTHENTICATION</text>
+
+      <rect x="54" y="520" width="1092" height="20" rx="2" fill="rgba(45,49,66,0.045)"/>
+      <text x="64" y="534" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">2 · EVERY SUBSEQUENT REQUEST</text>
+
+      <rect x="54" y="756" width="1092" height="20" rx="2" fill="rgba(45,49,66,0.045)"/>
+      <text x="64" y="770" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">3 · ACTING ON A GATE · ROLE- AND CSRF-GATED</text>
+
+      <rect x="54" y="1056" width="1092" height="20" rx="2" fill="rgba(45,49,66,0.045)"/>
+      <text x="64" y="1070" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">4 · LOGOUT · POST + CSRF</text>
+
+      <!-- ===================== ALT FRAMES ===================== -->
+      <!-- Frame 1: invalid / valid -->
+      <rect x="336" y="320" width="564" height="180" rx="4" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      <rect x="336" y="320" width="44" height="16" rx="2" fill="#f5f5f5" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      <text x="358" y="332" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">ALT</text>
+      <text x="348" y="340" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.04em">[invalid]</text>
+      <line x1="344" y1="416" x2="892" y2="416" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="348" y="432" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.04em">[valid]</text>
+
+      <!-- Frame 2: no session / authenticated -->
+      <rect x="336" y="616" width="300" height="128" rx="4" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      <rect x="336" y="616" width="44" height="16" rx="2" fill="#f5f5f5" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      <text x="358" y="628" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">ALT</text>
+      <text x="348" y="636" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.04em">[no session, or expired]</text>
+      <line x1="344" y1="684" x2="628" y2="684" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="348" y="700" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.04em">[authenticated]</text>
+
+      <!-- Frame 3: viewer / operator -->
+      <rect x="336" y="852" width="780" height="198" rx="4" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      <rect x="336" y="852" width="44" height="16" rx="2" fill="#f5f5f5" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      <text x="358" y="864" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">ALT</text>
+      <text x="348" y="872" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.04em">[viewer, or CSRF token missing / invalid]</text>
+      <line x1="344" y1="920" x2="1108" y2="920" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="348" y="936" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.04em">[operator + valid token]</text>
+
+      <!-- ===================== LIFELINES ===================== -->
+      <line x1="120" y1="96" x2="120" y2="1148" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="360" y1="96" x2="360" y2="1148" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="620" y1="96" x2="620" y2="1148" stroke="rgba(235,108,54,0.35)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="860" y1="96" x2="860" y2="1148" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="1080" y1="96" x2="1080" y2="1148" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+
+      <!-- ===================== ACTIVATION BARS ===================== -->
+      <rect x="856" y="304" width="8" height="152" fill="rgba(45,49,66,0.06)" stroke="#4f5d75" stroke-width="0.8"/>
+      <rect x="1076" y="960" width="8" height="32" fill="rgba(45,49,66,0.06)" stroke="#4f5d75" stroke-width="0.8"/>
+      <rect x="616" y="584" width="8" height="20" fill="rgba(45,49,66,0.06)" stroke="#4f5d75" stroke-width="0.8"/>
+      <rect x="616" y="820" width="8" height="20" fill="rgba(45,49,66,0.06)" stroke="#4f5d75" stroke-width="0.8"/>
+
+      <!-- ===================== MESSAGES ===================== -->
+      <!-- m1 U->B open console -->
+      <line x1="120" y1="164" x2="360" y2="164" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="204" y="144" width="72" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="240" y="153" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">open console</text>
+
+      <!-- m2 B->C GET /login -->
+      <line x1="360" y1="192" x2="620" y2="192" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+      <rect x="458" y="172" width="64" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="490" y="181" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">GET /login</text>
+
+      <!-- m3 C-->B login form -->
+      <line x1="620" y1="220" x2="360" y2="220" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+      <rect x="458" y="200" width="64" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="490" y="209" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">login form</text>
+
+      <!-- m4 U->B username + password -->
+      <line x1="120" y1="248" x2="360" y2="248" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="186" y="228" width="108" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="240" y="237" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">username + password</text>
+
+      <!-- m5 B->C POST /login -->
+      <line x1="360" y1="276" x2="620" y2="276" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+      <rect x="456" y="256" width="68" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="490" y="265" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">POST /login</text>
+
+      <!-- m6 C->US verify -->
+      <line x1="620" y1="304" x2="856" y2="304" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="670" y="284" width="146" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="740" y="293" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">verify(username, password)</text>
+
+      <!-- m7 US-->C None -->
+      <line x1="856" y1="364" x2="620" y2="364" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+      <rect x="722" y="344" width="36" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="740" y="353" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">None</text>
+
+      <!-- m8 C-->B 401 -->
+      <line x1="620" y1="392" x2="360" y2="392" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+      <rect x="420" y="372" width="144" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="492" y="381" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">401 · re-render with error</text>
+
+      <!-- m9 US-->C User(role) -->
+      <line x1="856" y1="456" x2="620" y2="456" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+      <rect x="708" y="436" width="64" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="740" y="445" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">User(role)</text>
+
+      <!-- m10 C-->B 302 set cookie (HEADLINE SUCCESS) -->
+      <line x1="620" y1="480" x2="360" y2="480" stroke="#eb6c36" stroke-width="1.6" marker-end="url(#arrow-accent)"/>
+      <rect x="378" y="460" width="224" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="490" y="469" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">302 · signed cookie {user, role, times, csrf}</text>
+
+
+      <!-- Note: session establishment -->
+      <rect x="56" y="428" width="270" height="52" rx="4" fill="#f5f5f5" stroke="rgba(45,49,66,0.22)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="191" y="443" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">on success: old session cleared first,</text>
+      <text x="191" y="455" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">then fresh CSRF token + login time;</text>
+      <text x="191" y="467" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">cookie signed · HttpOnly · SameSite=Lax</text>
+
+      <!-- m11 B->C GET view -->
+      <line x1="360" y1="564" x2="620" y2="564" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+      <rect x="404" y="544" width="172" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="490" y="553" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">GET /dashboard | /approvals | …</text>
+
+      <!-- m12 C->C self login_required -->
+      <path d="M 624,586 H 652 V 600 H 624" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="658" y="587" width="214" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="660" y="596" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">login_required · signed in, not expired?</text>
+
+      <!-- m13 C-->B 302 /login -->
+      <line x1="620" y1="660" x2="360" y2="660" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+      <rect x="394" y="640" width="192" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="490" y="649" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">302 · /login (expired: session cleared)</text>
+
+      <!-- m14 C-->B 200 rendered view -->
+      <line x1="620" y1="724" x2="360" y2="724" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+      <rect x="404" y="704" width="176" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="492" y="713" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">200 · rendered view (read-only)</text>
+
+
+      <!-- Note: server-side expiry -->
+      <rect x="652" y="626" width="276" height="50" rx="4" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.22)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="790" y="641" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">expired = idle &gt; 30 min, or &gt; 8 h since login</text>
+      <text x="790" y="653" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">(checked server-side against the clock)</text>
+      <text x="790" y="665" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">each valid request refreshes the idle timer</text>
+
+      <!-- m15 B->C POST approve -->
+      <line x1="360" y1="800" x2="620" y2="800" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+      <rect x="390" y="780" width="200" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="490" y="789" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">POST /approvals/{id}/approve + csrf_token</text>
+
+      <!-- m16 C->C self requires_role -->
+      <path d="M 624,822 H 652 V 836 H 624" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="658" y="823" width="184" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="660" y="832" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">requires_role(operator) + CSRF check</text>
+
+      <!-- m17 C-->B 403 -->
+      <line x1="620" y1="896" x2="360" y2="896" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+      <rect x="404" y="876" width="172" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="490" y="885" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">403 · viewer role or bad CSRF token</text>
+
+      <!-- m18 C->Q resolve -->
+      <line x1="620" y1="960" x2="1076" y2="960" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="746" y="940" width="208" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="850" y="949" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">resolve(approval_id, approved, operator)</text>
+
+      <!-- m19 Q-->C PendingApproval -->
+      <line x1="1076" y1="988" x2="620" y2="988" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+      <rect x="786" y="968" width="128" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="850" y="977" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">PendingApproval(status)</text>
+
+      <!-- m20 C-->B 302 /approvals -->
+      <line x1="620" y1="1016" x2="360" y2="1016" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+      <rect x="406" y="996" width="168" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="490" y="1005" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">302 · /approvals (flash result)</text>
+
+      <!-- Note right of Q -->
+      <rect x="886" y="998" width="226" height="46" rx="4" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.22)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="999" y="1012" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">unblocks the monitor's wait; the</text>
+      <text x="999" y="1024" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">monitor writes ApprovalResolutionEvent</text>
+      <text x="999" y="1036" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">with the operator as a SHA-256 digest</text>
+
+      <!-- m21 B->C POST /logout -->
+      <line x1="360" y1="1100" x2="620" y2="1100" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+      <rect x="426" y="1080" width="128" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="490" y="1089" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">POST /logout + csrf_token</text>
+
+      <!-- m22 C-->B 302 /login cleared -->
+      <line x1="620" y1="1128" x2="360" y2="1128" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+      <rect x="408" y="1108" width="164" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="490" y="1117" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">302 · /login (session cleared)</text>
+
+
+      <!-- Note: logout CSRF -->
+      <rect x="652" y="1090" width="252" height="38" rx="4" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.22)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="778" y="1105" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">no valid token → session left intact</text>
+      <text x="778" y="1117" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">(another site cannot force a logout)</text>
+
+      <!-- ===================== ACTOR BOXES ===================== -->
+      <!-- U (actor / person) -->
+      <rect x="54" y="44" width="132" height="52" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+      <text x="120" y="72" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Operator / Viewer</text>
+      <text x="120" y="88" fill="#7a8399" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">actor</text>
+
+      <!-- B (browser) -->
+      <rect x="294" y="44" width="132" height="52" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="360" y="72" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Browser</text>
+      <text x="360" y="88" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">client</text>
+
+      <!-- C (Console — FOCAL) -->
+      <rect x="554" y="44" width="132" height="52" rx="6" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1.2"/>
+      <text x="620" y="72" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Console</text>
+      <text x="620" y="88" fill="#eb6c36" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Flask · D5</text>
+
+      <!-- US (store) -->
+      <rect x="794" y="44" width="132" height="52" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+      <text x="860" y="72" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">UserStore</text>
+      <text x="860" y="88" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">werkzeug hashes</text>
+
+      <!-- Q (store / queue) -->
+      <rect x="1014" y="44" width="132" height="52" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+      <text x="1080" y="72" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">ApprovalQueue</text>
+      <text x="1080" y="88" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">shared w/ monitor</text>
+
+      <!-- ===================== LEGEND ===================== -->
+      <line x1="54" y1="1168" x2="1146" y2="1168" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      <text x="54" y="1184" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+
+      <rect x="54" y="1196" width="14" height="10" rx="2" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1"/>
+      <text x="74" y="1204" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Focal actor (Console)</text>
+
+      <line x1="240" y1="1201" x2="268" y2="1201" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+      <text x="276" y="1204" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">HTTP request</text>
+
+      <line x1="400" y1="1201" x2="428" y2="1201" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+      <text x="436" y="1204" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Response / return</text>
+
+      <line x1="580" y1="1201" x2="608" y2="1201" stroke="#eb6c36" stroke-width="1.6" marker-end="url(#arrow-accent)"/>
+      <text x="616" y="1204" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Headline success</text>
+
+      <line x1="768" y1="1201" x2="796" y2="1201" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <text x="804" y="1204" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Internal call</text>
+
+      <rect x="936" y="1196" width="14" height="10" rx="2" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      <text x="956" y="1204" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Branch (alt)</text>
+    </svg>
+  </div>
+</body>
+</html>

@@ -453,6 +453,15 @@ surface.
 | SEC-08 | Console requires authentication; sessions expire | Integration test plus manual verification |
 | SEC-09 | No real credentials, PHI or client data in the repository or logs | Code review; argument hashing rather than plaintext logging |
 
+**Status of two requirements in the delivered build.** SEC-08 is met: the console enforces a
+30-minute idle and 8-hour absolute session limit server-side, rotates the session and a per-session
+CSRF token at login, and requires that token on every approve, deny and logout POST; the expiry and
+CSRF paths are covered by `tests/web/test_auth.py`. SR-06 is substantially met: alongside each
+decision, the log now records tool execution outcomes (`ToolExecutionEvent`), chain progress with
+named binding digests (`ChainProgressEvent`) and the resolving operator's digest, and each record is
+hash-chained. It is not yet complete, because a call presented with an unknown session is denied
+(`system.invalid_session`) without an audit record.
+
 ## Ethical and Professional Considerations
 
 **Human oversight of autonomous systems.** The approval gate embodies a position: certain
