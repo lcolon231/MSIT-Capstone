@@ -70,11 +70,13 @@ def test_main_inprocess_blocks_terminal_export_at_sequence_layer(
 def test_main_loopback_uses_loopback_transport_context(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    used: list[tuple[Path, Path]] = []
+    used: list[tuple[Path, Path, float, int | None]] = []
 
     @contextlib.contextmanager
-    def fake(policy: Path, audit: Path) -> Iterator[InProcessTransport]:
-        used.append((policy, audit))
+    def fake(
+        policy: Path, audit: Path, approval_timeout: float, console_port: int | None
+    ) -> Iterator[InProcessTransport]:
+        used.append((policy, audit, approval_timeout, console_port))
         yield InProcessTransport(build_monitor(policy, audit))
 
     monkeypatch.setattr(launcher, "_loopback_transport", fake)
@@ -83,7 +85,7 @@ def test_main_loopback_uses_loopback_transport_context(
         ["--task", "t", "--transport", "loopback", "--policy", str(RMM), "--audit", str(audit)]
     )
     assert code == 0
-    assert used == [(RMM, audit)]
+    assert used == [(RMM, audit, launcher.UNATTENDED_APPROVAL_TIMEOUT_S, None)]
     assert "seq.recon_register_exfil.terminal" in capsys.readouterr().out
 
 
@@ -100,6 +102,72 @@ def test_print_run_formats_each_step(capsys: pytest.CaptureFixture[str]) -> None
 
 def test_free_port_returns_a_bindable_port() -> None:
     assert 0 < launcher._free_port() < 65536
+
+
+def test_main_console_port_is_passed_to_the_monitor_with_an_attended_timeout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    used: list[tuple[float, int | None]] = []
+
+    @contextlib.contextmanager
+    def fake(
+        policy: Path, audit: Path, approval_timeout: float, console_port: int | None
+    ) -> Iterator[InProcessTransport]:
+        used.append((approval_timeout, console_port))
+        yield InProcessTransport(build_monitor(policy, audit))
+
+    monkeypatch.setattr(launcher, "_loopback_transport", fake)
+    monkeypatch.setenv("OP_PASS", "s3cret")
+    argv = ["--task", "t", "--transport", "loopback", "--console-port", "5055"]
+    assert launcher.main([*argv, "--policy", str(RMM), "--audit", str(tmp_path / "a.jsonl")]) == 0
+    assert used == [(launcher.ATTENDED_APPROVAL_TIMEOUT_S, 5055)]
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--console-port", "5055"],  # the console needs the loopback monitor process
+        ["--transport", "loopback", "--console-port", "5055", "--attach", "http://127.0.0.1:1"],
+    ],
+)
+def test_main_rejects_invalid_console_combinations(
+    argv: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OP_PASS", "s3cret")
+    with pytest.raises(SystemExit):
+        launcher.main(["--task", "t", *argv])
+
+
+def test_main_console_port_requires_op_pass(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OP_PASS", raising=False)
+    with pytest.raises(SystemExit):
+        launcher.main(["--task", "t", "--transport", "loopback", "--console-port", "5055"])
+
+
+def test_main_attach_dispatches_to_the_running_monitor_without_spawning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    seen: dict[str, object] = {}
+    service = build_monitor(RMM, tmp_path / "a.jsonl")
+
+    def fake_transport(base_url: str, capability: str | None, timeout: float) -> InProcessTransport:
+        seen.update(base_url=base_url, capability=capability, timeout=timeout)
+        return InProcessTransport(service)
+
+    def no_spawn(*args: object, **kwargs: object) -> None:
+        pytest.fail("--attach must not spawn a monitor")
+
+    monkeypatch.setattr(launcher, "LoopbackTransport", fake_transport)
+    monkeypatch.setattr(launcher, "_loopback_transport", no_spawn)
+    monkeypatch.setenv("LOOPBACK_CAPABILITY", "cap-123")
+    argv = ["--task", "t", "--attach", "http://127.0.0.1:8787", "--approval-timeout", "60"]
+    assert launcher.main(argv) == 0
+    assert seen == {
+        "base_url": "http://127.0.0.1:8787",
+        "capability": "cap-123",
+        "timeout": 60.0 + launcher.CLIENT_TIMEOUT_MARGIN_S,
+    }
+    assert "seq.recon_register_exfil.terminal" in capsys.readouterr().out
 
 
 # --- _loopback_transport lifecycle, with the subprocess faked ------------------------------
@@ -158,7 +226,23 @@ def test_loopback_transport_ready_yields_client_with_capability_shared_via_env(
         assert transport._capability == capability
         assert len(capability) >= 32
     assert "src.monitor_server" in proc.argv
+    assert "--console-port" not in proc.argv
     assert proc.terminated
+
+
+def test_loopback_transport_passes_approval_timeout_and_console_port_to_the_monitor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    proc = FakeProc(exits=True)
+    install_fake_popen(monkeypatch, proc, ready=True)
+    with launcher._loopback_transport(
+        RMM, tmp_path / "a.jsonl", approval_timeout=120.0, console_port=5055
+    ) as transport:
+        # The client outwaits the monitor's gate, so a slow approval is not cut off client-side.
+        assert transport._timeout == 120.0 + launcher.CLIENT_TIMEOUT_MARGIN_S
+    argv = proc.argv
+    assert argv[argv.index("--approval-timeout") + 1] == "120.0"
+    assert argv[argv.index("--console-port") + 1] == "5055"
 
 
 def test_loopback_transport_kills_process_that_ignores_terminate(

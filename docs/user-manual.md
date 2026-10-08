@@ -85,8 +85,13 @@ Everything except a live-model run works without Ollama.
 ### 4.1 Start the console
 
 ```powershell
+$env:OP_PASS = "choose-an-operator-password"
+$env:VIEW_PASS = "choose-a-viewer-password"
 python -m src.web.run          # serves http://127.0.0.1:5000
 ```
+
+There are no default passwords: the console refuses to start without `OP_PASS`, and the viewer
+account exists only when `VIEW_PASS` is set.
 
 This launches the console over a demo monitor: it seeds an operator and a viewer account,
 pre-loads a little audit history, and queues **one pending approval** (a 500-record
@@ -94,14 +99,14 @@ pre-loads a little audit history, and queues **one pending approval** (a 500-rec
 
 ### 4.2 Log in
 
-Open http://127.0.0.1:5000. You are redirected to the login page. The demo defaults are:
+Open http://127.0.0.1:5000. You are redirected to the login page. Sign in with:
 
 | Role | Username | Password |
 |---|---|---|
-| operator | `operator` | `operator-pass` |
-| viewer | `viewer` | `viewer-pass` |
+| operator | `operator` (or `OP_USER`) | the value of `OP_PASS` |
+| viewer | `viewer` (or `VIEW_USER`) | the value of `VIEW_PASS` |
 
-> **Change these for anything beyond a local demo.** See §6.3.
+> Use strong, unshared passwords for anything beyond a local demo. See §6.3.
 
 A wrong username or password returns to the login page with *"Invalid username or password"*
 (HTTP 401) — the login is fail-closed and never says which field was wrong.
@@ -211,6 +216,9 @@ Key options:
 | `--policy` | `policies/rmm.yaml` | Policy the monitor enforces. |
 | `--audit` | `results/agent-run-audit.jsonl` | Where the audit log is written. |
 | `--max-steps` | `25` | Cap on agent turns. |
+| `--console-port` | *(off)* | Loopback only: the spawned monitor also serves the operator console on this port, on the same approval queue the agent's gated calls wait on. Requires `OP_PASS`. |
+| `--attach` | *(off)* | Dispatch to a monitor already running at this URL (e.g. `http://127.0.0.1:8787`) instead of spawning one; its capability comes from `LOOPBACK_CAPABILITY`. |
+| `--approval-timeout` | `2` (`300` with `--console-port` or `--attach`) | Seconds a gated call waits for an operator before it is denied. The client waits that long plus a margin. With `--attach`, match the running monitor's `--approval-timeout`. |
 
 With `--model stub` you will see the first three steps ALLOW and the terminal `export_records`
 DENY'd by the sequence engine — the project's headline result.
@@ -242,8 +250,8 @@ The committed reference run and how to read it are in
 | `HOST` / `PORT` | `127.0.0.1` / `5000` | Bind address. |
 | `MONITOR_POLICY` | `policies/rmm.yaml` | Policy shown in `/policy`. |
 | `MONITOR_AUDIT` | `results/console-demo-audit.jsonl` | Audit log the console reads. |
-| `OP_USER` / `OP_PASS` | `operator` / `operator-pass` | Operator account. |
-| `VIEW_USER` / `VIEW_PASS` | `viewer` / `viewer-pass` | Viewer account. |
+| `OP_USER` / `OP_PASS` | `operator` / *(required, no default)* | Operator account. The console will not start without `OP_PASS`. |
+| `VIEW_USER` / `VIEW_PASS` | `viewer` / *(unset)* | Viewer account; created only when `VIEW_PASS` is set. |
 | `CONSOLE_SECRET` | *(random)* | Flask session-signing secret. Set a stable value in deployment. |
 
 Example (PowerShell):

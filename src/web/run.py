@@ -4,13 +4,14 @@ Wires a console over a monitor's live objects (RMM policy), seeds an operator an
 account, and pre-populates one gated approval plus a little audit history so the dashboard,
 approvals, and audit views have content to show.
 
-    python -m src.web.run          # http://127.0.0.1:5000
+    $env:OP_PASS = "..."; python -m src.web.run          # http://127.0.0.1:5000
     OP_PASS=… VIEW_PASS=… CONSOLE_SECRET=… python -m src.web.run
 
-Credentials default to operator / operator-pass and viewer / viewer-pass — override via env for
-anything beyond a local demo. The console here sits on a real composed monitor (same queue,
-sessions, and enforced policy); to serve the console alongside the loopback endpoint that agents
-actually dispatch through, use ``python -m src.monitor_server --console-port``.
+There are no default credentials: ``OP_PASS`` is required (``OP_USER`` defaults to ``operator``),
+and a viewer account exists only when ``VIEW_PASS`` is set (``VIEW_USER`` defaults to
+``viewer``). The console here sits on a real composed monitor (same queue, sessions, and enforced
+policy); to serve the console alongside the loopback endpoint that agents actually dispatch
+through, use ``python -m src.monitor_server --console-port``.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from src.composition import compose_monitor
 from src.monitor.gate import classify_gate
 from src.monitor.types import CallId, Decision, Principal, SessionId, ToolCall
 from src.transport.contract import Verdict
-from src.web import ConsoleContext, Role, UserStore, create_app
+from src.web import ConsoleContext, UserStore, create_app, users_from_env
 
 
 def _demo_call(tool: str, **args: object) -> ToolCall:
@@ -38,6 +39,8 @@ def _demo_call(tool: str, **args: object) -> ToolCall:
 
 
 def build_context() -> tuple[ConsoleContext, UserStore]:
+    # Credentials first, so a missing OP_PASS stops startup before any demo history is written.
+    users = users_from_env(os.environ)
     policy_path = Path(os.environ.get("MONITOR_POLICY", "policies/rmm.yaml"))
     audit_path = Path(os.environ.get("MONITOR_AUDIT", "results/console-demo-audit.jsonl"))
 
@@ -47,10 +50,10 @@ def build_context() -> tuple[ConsoleContext, UserStore]:
     history = AuditWriter(audit_path)
     history.append(decision_event(_demo_call("list_endpoints"), Decision(Verdict.ALLOW, "rmm.list_endpoints.allow", "matched rule")))
     export = _demo_call("export_records", to="attacker-dropbox", count=500)
-    history.append(decision_event(export, Decision(Verdict.GATE, "rmm.export_records.gate", "matched rule")))
+    gate_class = classify_gate(export)
+    history.append(decision_event(export, Decision(Verdict.GATE, "rmm.export_records.gate", "matched rule", gate_class)))
 
     stack = compose_monitor(policy_path, audit_path)
-    gate_class = classify_gate(export)
     if gate_class is not None:
         stack.approvals.enqueue(export, gate_class)  # one pending approval to act on
 
@@ -61,18 +64,11 @@ def build_context() -> tuple[ConsoleContext, UserStore]:
         audit_path=audit_path,
         policy_source=policy_path.read_text(encoding="utf-8"),
     )
-    return context, _seed_users()
-
-
-def _seed_users() -> UserStore:
-    users = UserStore()
-    users.add(os.environ.get("OP_USER", "operator"), os.environ.get("OP_PASS", "operator-pass"), Role.OPERATOR)
-    users.add(os.environ.get("VIEW_USER", "viewer"), os.environ.get("VIEW_PASS", "viewer-pass"), Role.VIEWER)
-    return users
+    return context, users
 
 
 def main() -> None:
-    context, users = build_context()
+    context, users = build_context()  # exits with a message if OP_PASS is unset
     app = create_app(context, users, secret_key=os.environ.get("CONSOLE_SECRET"))
     app.run(host=os.environ.get("HOST", "127.0.0.1"), port=int(os.environ.get("PORT", "5000")))
 

@@ -39,7 +39,7 @@ from src.eval.environment import build_eval_monitor
 from src.monitor.gate import ApprovalQueue
 from src.monitor.service import MonitorService
 from src.transport.loopback_server import LoopbackServer
-from src.web import ConsoleContext, Role, UserStore, create_app
+from src.web import ConsoleContext, UserStore, create_app, users_from_env
 
 CAPABILITY_ENV = "LOOPBACK_CAPABILITY"
 
@@ -79,17 +79,9 @@ def _build_service(
 
 
 def console_users(env: Mapping[str, str]) -> UserStore:
-    """Operator (required) and optional viewer accounts from the environment. There is no
-    default operator password: a real monitor's console must not ship with a guessable one."""
-    op_pass = env.get("OP_PASS")
-    if not op_pass:
-        raise SystemExit("--console-port requires the OP_PASS environment variable")
-    users = UserStore()
-    users.add(env.get("OP_USER", "operator"), op_pass, Role.OPERATOR)
-    view_pass = env.get("VIEW_PASS")
-    if view_pass:
-        users.add(env.get("VIEW_USER", "viewer"), view_pass, Role.VIEWER)
-    return users
+    """Operator (required) and optional viewer accounts from the environment; no default
+    operator password (``src.web.users_from_env``)."""
+    return users_from_env(env)
 
 
 def console_context(stack: MonitorStack) -> ConsoleContext:

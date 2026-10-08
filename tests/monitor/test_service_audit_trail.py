@@ -250,6 +250,29 @@ def test_queue_records_resolving_operator_on_the_pending_record() -> None:
     assert queue.resolve(record.approval_id, approved=True, operator="bob").operator == "bob"
 
 
+def test_gate_decision_record_carries_its_gate_class(tmp_path: Path) -> None:
+    service, _, session = build(tmp_path, ResolvingQueue("alice"))
+    service.handle(ToolCallProposal("export_records", {"to": "approved-dest"}), session)
+    (decision,) = events(tmp_path, DecisionEvent)
+    (resolution,) = events(tmp_path, ApprovalResolutionEvent)
+    assert decision.gate_class is GateClass.DATA_EXPORT
+    assert resolution.gate_class is decision.gate_class
+
+
+def test_resolution_is_stamped_when_resolved_not_when_proposed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import src.monitor.service as service_mod
+
+    clock = iter([100.0, 160.0])  # proposal enrichment, then the resolution write
+    monkeypatch.setattr(service_mod.time, "time", lambda: next(clock))
+    service, _, session = build(tmp_path, ResolvingQueue("alice"))
+    service.handle(ToolCallProposal("export_records", {"to": "approved-dest"}), session)
+    (decision,) = events(tmp_path, DecisionEvent)
+    (resolution,) = events(tmp_path, ApprovalResolutionEvent)
+    assert (decision.timestamp, resolution.timestamp) == (100.0, 160.0)
+
+
 # --- ordering under audit failure ---------------------------------------------------------
 
 

@@ -68,9 +68,10 @@ that isolation; `inprocess` otherwise.
 ## Operations
 
 **Q: What are the default console credentials?**
-`operator` / `operator-pass` and `viewer` / `viewer-pass`. **Change them** for anything beyond a
-local demo via the `OP_PASS` / `VIEW_PASS` (and `OP_USER` / `VIEW_USER`) environment variables, and
-set a stable `CONSOLE_SECRET`. See [user manual §6.3](user-manual.md#63-point-the-console-at-a-different-policy-log-or-accounts).
+There are none. Both `python -m src.web.run` and `python -m src.monitor_server --console-port`
+refuse to start unless `OP_PASS` is set; the operator username defaults to `operator` (`OP_USER`).
+A read-only viewer account exists only if you also set `VIEW_PASS` (username `viewer`, or
+`VIEW_USER`). Set a stable `CONSOLE_SECRET` too. See [user manual §6.3](user-manual.md#63-point-the-console-at-a-different-policy-log-or-accounts).
 
 **Q: Where is the audit log?**
 The console reads `results/console-demo-audit.jsonl` by default (override with `MONITOR_AUDIT`).

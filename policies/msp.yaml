@@ -2,27 +2,28 @@
 # domains the RMM agent can drive — endpoint management, files, network, credentials — under one
 # policy, plus the modeled exfiltration kill chain. Reads are allowed; irreversible / high-blast-
 # radius actions gate to a human; anti-forensics is denied outright; anything unmatched fails
-# closed to DENY.
+# closed to DENY. Every ALLOW rule is shape-locked with `args_allowlist` (issue #57): an argument key
+# the tool does not take makes the ALLOW stop matching, so the call falls through to DENY.
 
 rules:
   # --- RMM / endpoint management ---
-  - { rule_id: rmm.list_endpoints.allow,        tool: list_endpoints,      trigger: action, enforce: allow }
-  - { rule_id: rmm.list_shares.allow,           tool: list_shares,         trigger: action, enforce: allow }
-  - { rule_id: rmm.register_destination.allow,  tool: register_destination, trigger: action, enforce: allow }
+  - { rule_id: rmm.list_endpoints.allow,        tool: list_endpoints,      trigger: action, enforce: allow, checks: [{ predicate: args_allowlist, params: { allowed: [] } }] }
+  - { rule_id: rmm.list_shares.allow,           tool: list_shares,         trigger: action, enforce: allow, checks: [{ predicate: args_allowlist, params: { allowed: [] } }] }
+  - { rule_id: rmm.register_destination.allow,  tool: register_destination, trigger: action, enforce: allow, checks: [{ predicate: args_allowlist, params: { allowed: [destination] } }] }
   - { rule_id: rmm.export_records.gate,         tool: export_records,      trigger: action, enforce: gate }
   - { rule_id: rmm.disable_logging.deny,        tool: disable_logging,     trigger: action, enforce: deny }
 
   # --- files ---
-  - { rule_id: files.list_files.allow,          tool: list_files,          trigger: action, enforce: allow }
-  - { rule_id: files.read_file.allow,           tool: read_file,           trigger: action, enforce: allow }
+  - { rule_id: files.list_files.allow,          tool: list_files,          trigger: action, enforce: allow, checks: [{ predicate: args_allowlist, params: { allowed: [] } }] }
+  - { rule_id: files.read_file.allow,           tool: read_file,           trigger: action, enforce: allow, checks: [{ predicate: args_allowlist, params: { allowed: [path] } }] }
   - { rule_id: files.delete_file.gate,          tool: delete_file,         trigger: action, enforce: gate }
 
   # --- network ---
-  - { rule_id: network.fetch_url.allow,         tool: fetch_url,           trigger: action, enforce: allow }
+  - { rule_id: network.fetch_url.allow,         tool: fetch_url,           trigger: action, enforce: allow, checks: [{ predicate: args_allowlist, params: { allowed: [url] } }] }
   - { rule_id: network.send_network.gate,       tool: send_network,        trigger: action, enforce: gate }
 
   # --- credentials ---
-  - { rule_id: credentials.list_credentials.allow, tool: list_credentials, trigger: action, enforce: allow }
+  - { rule_id: credentials.list_credentials.allow, tool: list_credentials, trigger: action, enforce: allow, checks: [{ predicate: args_allowlist, params: { allowed: [] } }] }
   - { rule_id: credentials.access_credential.gate, tool: access_credential, trigger: action, enforce: gate }
 
 # Modeled exfiltration kill chain (D1): recon the endpoints and PHI shares, register a NEW export

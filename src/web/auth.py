@@ -16,7 +16,7 @@ import secrets
 from dataclasses import dataclass
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, Mapping, TypeVar
 
 from flask import abort, current_app, redirect, request, session, url_for
 from flask.typing import ResponseReturnValue
@@ -52,6 +52,21 @@ class UserStore:
         if user is not None and check_password_hash(user.password_hash, password):
             return user
         return None
+
+
+def users_from_env(env: Mapping[str, str]) -> UserStore:
+    """Operator (required) and optional viewer accounts from the environment. There is no
+    default password for either role: a console must never start with a guessable account.
+    A missing ``OP_PASS`` stops startup with a message rather than falling back to a default."""
+    op_pass = env.get("OP_PASS")
+    if not op_pass:
+        raise SystemExit("the operator console requires the OP_PASS environment variable")
+    users = UserStore()
+    users.add(env.get("OP_USER", "operator"), op_pass, Role.OPERATOR)
+    view_pass = env.get("VIEW_PASS")
+    if view_pass:
+        users.add(env.get("VIEW_USER", "viewer"), view_pass, Role.VIEWER)
+    return users
 
 
 def current_role() -> Role | None:

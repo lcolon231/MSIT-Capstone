@@ -39,17 +39,19 @@ every verdict is written to an append-only audit log with a traceable `rule_id`.
 ### Step 1 — Start it
 
 ```powershell
+$env:OP_PASS = "choose-an-operator-password"
+$env:VIEW_PASS = "choose-a-viewer-password"
 python -m src.web.run
 ```
 
-Leave it running and open **http://127.0.0.1:5000** in a browser. The demo launcher has already
+The console has no default passwords, so it will not start until `OP_PASS` is set. Leave it running and open **http://127.0.0.1:5000** in a browser. The demo launcher has already
 seeded some audit history and **one pending approval** so there is something real to act on.
 
 ### Step 2 — Log in as the operator
 
 | Username | Password |
 |---|---|
-| `operator` | `operator-pass` |
+| `operator` | the `OP_PASS` value you set in Step 1 |
 
 You land on the **dashboard**: recent decisions on the left, resolution history, and a
 pending-approvals count that reads **1**.
@@ -78,7 +80,7 @@ authenticated operator resolving it here — the agent cannot do it, and neither
 
 ### Step 5 — See the role boundary
 
-Log out (the **log out** button in the header), then log back in as the **viewer** (`viewer` / `viewer-pass`). Open
+Log out (the **log out** button in the header), then log back in as the **viewer** (`viewer` and your `VIEW_PASS` value). Open
 **Approvals** again: same list, **no buttons**. The viewer role is read-only; a viewer who tries
 to force the approve/deny action gets a **403**. Log back in as `operator` when you're done.
 

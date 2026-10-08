@@ -201,3 +201,16 @@ The deterministic stub run is reproducible in CI. Live Ollama behavior may vary 
 quantization, hardware, and sampling behavior. Audit records intentionally hash arguments and use
 run-specific timestamps, call IDs, session IDs, and approval IDs; exact JSONL bytes are evidence of
 this run, not a golden-file assertion.
+
+**Policy revision after these runs.** Every ALLOW rule in `policies/msp.yaml` was later
+shape-locked with `args_allowlist` (issue #57), so a call carrying an argument key its tool does
+not take now falls through to DENY. The deterministic stub suite was re-run under the revised
+policy with identical results (100% containment, 0% false-block, 100% utility). The live Ollama
+runs were not repeated. An offline check of their audit logs confirmed that all 54 ALLOW decisions
+for the zero-argument tools carried no arguments, so those would be unchanged. Arguments are
+logged only as digests, so the 50 ALLOW decisions for single-argument tools (`read_file`,
+`fetch_url`, `register_destination`) cannot be re-checked offline. If any of those carried an extra
+key, the revised policy would deny it. In this harness that can raise the false-block rate but
+cannot let an attack through: a denied step at worst leaves a later irreversible step to the D5
+gate, and attack gates are never approved here. The live figures above therefore describe the policy as it stood at the
+time of the run.
