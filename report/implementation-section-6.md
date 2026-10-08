@@ -68,7 +68,7 @@ The saved deterministic evaluation contains six attack scenarios and four benign
 
 ## 6.6 Final Visual Documentation
 
-Figures 5 through 8 document the single-call flow, approval gate, login and role session, and deployment boundaries. The screenshots below record the completed interface and command-line demonstrations. Figures 9 through 15 use the seeded local console or deterministic stub and evaluation paths; their captions identify that provenance.
+Figures 5 through 8 document the single-call flow, approval gate, login and role session, and deployment boundaries. The screenshots below record the completed interface and command-line demonstrations. Figures 10 and 13 were captured from the console served by the monitor process during a live loopback session; the other screenshots use the seeded local console or the deterministic stub and evaluation paths. Each caption identifies its provenance.
 
 ![Operator console login](../docs/screenshots/01-login.png)
 
@@ -76,7 +76,7 @@ Figures 5 through 8 document the single-call flow, approval gate, login and role
 
 ![Operator dashboard](../docs/screenshots/02-operator-dashboard.png)
 
-*Figure 10. Operator dashboard using seeded demonstration data. The page shows the pending-approval count and recent ALLOW and GATE decisions with their rule identifiers.*
+*Figure 10. Operator dashboard during a live loopback session. The page shows one agent run's decisions with their rule identifiers, including the sequence-engine DENY, and two data-export approvals attributed to the operator by SHA-256 digest. Times are Unix timestamps.*
 
 ![Pending approval](../docs/screenshots/03-approvals-pending.png)
 
@@ -88,7 +88,7 @@ Figures 5 through 8 document the single-call flow, approval gate, login and role
 
 ![Sequence state inspector](../docs/screenshots/08-sequence.png)
 
-*Figure 13. Sequence-state inspector in the standalone demonstration. The empty view confirms that the interface renders correctly; it does not show progress from a separately launched loopback monitor.*
+*Figure 13. Sequence-state inspector during the same live session. The reconnaissance, registration and exfiltration chain is held at S3 for the client principal, with the registered destination bound by name only.*
 
 ![Canonical kill chain denied](../docs/screenshots/10-cli-killchain.png)
 
