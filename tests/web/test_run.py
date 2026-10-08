@@ -53,3 +53,20 @@ def test_former_default_credentials_are_not_accepted(
     monkeypatch.delenv("VIEW_PASS", raising=False)
     _, users = run.build_context()
     assert users.verify(username, password) is None
+
+
+def test_main_serves_the_console_on_host_and_port_from_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import flask
+
+    repo = Path(__file__).resolve().parents[2]
+    seen: dict[str, object] = {}
+    monkeypatch.setattr(flask.Flask, "run", lambda app, host, port: seen.update(host=host, port=port))
+    monkeypatch.setenv("MONITOR_POLICY", str(repo / "policies" / "rmm.yaml"))
+    monkeypatch.setenv("MONITOR_AUDIT", str(tmp_path / "demo.jsonl"))
+    monkeypatch.setenv("OP_PASS", "s3cret")
+    monkeypatch.setenv("HOST", "127.0.0.2")
+    monkeypatch.setenv("PORT", "5099")
+    run.main()
+    assert seen == {"host": "127.0.0.2", "port": 5099}
