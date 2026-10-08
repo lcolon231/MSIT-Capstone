@@ -295,3 +295,118 @@ def test_escalating_step_can_emit_gate() -> None:
     decision = classify(make_call("list_shares"), state, pol)
     assert decision is not None and decision.verdict is Verdict.GATE
     assert decision.rule_id == "seq.probe.gate"
+
+
+# --- fail-closed edges of the automaton -----------------------------------------------------
+
+
+def _single_step_policy(step: ChainStep, *more: ChainStep, name: str = "probe") -> Policy:
+    chain = ChainSpec(name=name, domain="rmm", steps=(step, *more))
+    return Policy(rules=(), sequence=SequenceConfig(chains=(chain,)))
+
+
+def _nodes(state: SequenceState) -> list[tuple[str, str]]:
+    return sorted((p.chain, p.node) for chains in state.progress.values() for p in chains)
+
+
+def test_progress_on_one_chain_does_not_leak_into_another() -> None:
+    first = ChainSpec(name="a", domain="rmm", steps=(ChainStep(trigger="list_endpoints", to_node="A1"),))
+    second = ChainSpec(
+        name="b",
+        domain="rmm",
+        steps=(
+            ChainStep(trigger="list_endpoints", to_node="B1"),
+            ChainStep(trigger="list_shares", from_node="B1", to_node="B2"),
+        ),
+    )
+    pol = Policy(rules=(), sequence=SequenceConfig(chains=(first, second)))
+    state = run_prefix(pol, make_call("list_endpoints"), make_call("list_shares"))
+    assert _nodes(state) == [("a", "A1"), ("b", "B2")]
+
+
+def test_forward_step_whose_check_fails_does_not_advance() -> None:
+    step = ChainStep(
+        trigger="list_endpoints",
+        to_node="S1",
+        checks=(Check(predicate="arg_equals", params={"arg": "site", "value": "hq"}),),
+    )
+    pol = _single_step_policy(step)
+    assert _nodes(run_prefix(pol, make_call("list_endpoints", site="branch"))) == []
+    assert _nodes(run_prefix(pol, make_call("list_endpoints", site="hq"))) == [("probe", "S1")]
+
+
+def test_negated_forward_check_inverts_the_match() -> None:
+    step = ChainStep(
+        trigger="list_endpoints",
+        to_node="S1",
+        checks=(Check(predicate="arg_equals", params={"arg": "site", "value": "hq"}, negate=True),),
+    )
+    pol = _single_step_policy(step)
+    assert _nodes(run_prefix(pol, make_call("list_endpoints", site="hq"))) == []
+    assert _nodes(run_prefix(pol, make_call("list_endpoints", site="branch"))) == [("probe", "S1")]
+
+
+def test_forward_check_that_raises_fails_closed() -> None:
+    # args_allowlist without its required `allowed` param raises inside the predicate.
+    step = ChainStep(
+        trigger="list_endpoints", to_node="S1", checks=(Check(predicate="args_allowlist", params={}),)
+    )
+    assert _nodes(run_prefix(_single_step_policy(step), make_call("list_endpoints"))) == []
+
+
+def test_bind_skips_an_absent_source_argument() -> None:
+    state = run_prefix(
+        policy_with_chain(),
+        make_call("list_endpoints"),
+        make_call("list_shares"),
+        make_call("register_destination"),  # no `destination` argument to bind
+    )
+    (progress,) = state.for_subject(subject_of(make_call("x")))
+    assert progress.node == "S3_DESTINATION_ADDED"
+    assert dict(progress.bindings) == {}
+
+
+def test_bind_source_outside_args_binds_nothing() -> None:
+    step = ChainStep(trigger="register_destination", to_node="S1", bind={"dest": "call.destination"})
+    state = run_prefix(_single_step_policy(step), make_call("register_destination", destination="x"))
+    (progress,) = state.for_subject(subject_of(make_call("x")))
+    assert dict(progress.bindings) == {}
+
+
+def _primed(blocking_check: Check) -> tuple[Policy, SequenceState]:
+    bind = ChainStep(trigger="register_destination", to_node="S1", bind={"dest": "args.destination"})
+    block = ChainStep(
+        trigger="export_records",
+        from_node="S1",
+        to_node="S2",
+        checks=(blocking_check,),
+        enforce=Verdict.DENY,
+    )
+    pol = _single_step_policy(bind, block)
+    return pol, run_prefix(pol, make_call("register_destination", destination="drop"))
+
+
+def test_blocking_check_without_the_target_argument_does_not_fire() -> None:
+    pol, state = _primed(
+        Check(predicate="target_is_bound_value", params={"argument": "to", "binding": "dest"})
+    )
+    assert classify(make_call("export_records"), state, pol) is None  # no `to` argument
+
+
+def test_blocking_check_with_malformed_params_fails_closed() -> None:
+    pol, state = _primed(Check(predicate="target_is_bound_value", params={"argument": "to"}))
+    assert classify(make_call("export_records", to="drop"), state, pol) is None
+
+
+def test_unknown_sequence_predicate_never_fires() -> None:
+    pol, state = _primed(Check(predicate="not_a_sequence_predicate", params={}))
+    assert classify(make_call("export_records", to="drop"), state, pol) is None
+
+
+def test_blocking_step_without_rule_id_gets_a_derived_one() -> None:
+    pol, state = _primed(
+        Check(predicate="target_is_bound_value", params={"argument": "to", "binding": "dest"})
+    )
+    decision = classify(make_call("export_records", to="drop"), state, pol)
+    assert decision is not None and decision.verdict is Verdict.DENY
+    assert decision.rule_id == "seq.probe.S2"
