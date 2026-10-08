@@ -11,7 +11,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from src.audit.chain import GENESIS, ChainVerification, line_sha256, verify_chain
+import pytest
+
+from src.audit import chain as chain_mod
+from src.audit.chain import GENESIS, ChainVerification, envelope_line, line_sha256, verify_chain
+from src.audit.events import to_dict
 from src.audit.replay import replay
 from src.audit.writer import AuditWriter
 from tests.audit.samples import decision_ev, lifecycle_ev
@@ -156,3 +160,64 @@ def test_replay_reads_chained_log_unchanged(tmp_path: Path) -> None:
         writer.append(event)
     # the envelope keys are invisible to replay — it still reconstructs the exact events
     assert list(replay(path)) == events
+
+
+# --- malformed records and blank lines ------------------------------------------------------
+
+
+def test_verify_chain_reports_a_non_object_record(tmp_path: Path) -> None:
+    path = tmp_path / "audit.jsonl"
+    _write(path, 2)
+    lines = _lines(path)
+    lines[1] = "[1, 2, 3]"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    result = verify_chain(path)
+    assert (result.ok, result.broken_at) == (False, 2)
+    assert "not a JSON object" in result.reason
+
+
+def test_verify_chain_reports_seq_mismatch_even_when_the_hash_links(tmp_path: Path) -> None:
+    path = tmp_path / "audit.jsonl"
+    path.write_text(envelope_line(to_dict(decision_ev()), GENESIS, 7) + "\n", encoding="utf-8")
+    result = verify_chain(path)
+    assert (result.ok, result.broken_at) == (False, 1)
+    assert "seq expected 0, found 7" in result.reason
+
+
+def test_blank_lines_are_ignored_by_verify_and_resume(tmp_path: Path) -> None:
+    path = tmp_path / "audit.jsonl"
+    _write(path, 2)
+    path.write_text(path.read_text(encoding="utf-8").replace("\n", "\n\n", 1), encoding="utf-8")
+    assert verify_chain(path).ok
+    _write(path, 1)  # a new writer resumes past the blank line
+    result = verify_chain(path)
+    assert (result.ok, result.records) == (True, 3)
+
+
+# --- python -m src.audit.chain ----------------------------------------------------------------
+
+
+def test_cli_reports_an_intact_chain(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    path = tmp_path / "audit.jsonl"
+    _write(path, 3)
+    assert chain_mod.main([str(path)]) == 0
+    assert capsys.readouterr().out.startswith("OK: chain intact across 3 record(s)")
+
+
+def test_cli_reports_tampering_with_the_line(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    path = tmp_path / "audit.jsonl"
+    _write(path, 3)
+    lines = _lines(path)
+    lines[0] = lines[0].replace('"c0"', '"cX"')
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    assert chain_mod.main([str(path)]) == 1
+    out = capsys.readouterr().out
+    assert "TAMPER DETECTED at line 2" in out
+    assert "(1 record(s) verified before the break)" in out
+
+
+def test_cli_missing_file_is_a_failure_without_a_line(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert chain_mod.main([str(tmp_path / "missing.jsonl")]) == 1
+    assert capsys.readouterr().out.startswith("TAMPER DETECTED: audit log not found")
