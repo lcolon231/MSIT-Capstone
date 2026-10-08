@@ -79,8 +79,12 @@ Each verdict is recorded in an append-only audit log and includes a traceable `r
 Open a PowerShell terminal and execute:
 
 ```powershell
+$env:OP_PASS = "choose-an-operator-password"
+$env:VIEW_PASS = "choose-a-viewer-password"
 python -m src.web.run
 ```
+
+The console has no default passwords and does not start until `OP_PASS` is set.
 
 Leave the process running.
 
@@ -103,7 +107,7 @@ Use the following credentials:
 | Field | Value |
 |---|---|
 | Username | `operator` |
-| Password | `operator-pass` |
+| Password | the `OP_PASS` value set in Step 1 |
 
 After authentication, the system displays the operator dashboard.
 
@@ -203,7 +207,7 @@ Authenticate using the viewer account:
 | Field | Value |
 |---|---|
 | Username | `viewer` |
-| Password | `viewer-pass` |
+| Password | the `VIEW_PASS` value set in Step 1 |
 
 Return to:
 

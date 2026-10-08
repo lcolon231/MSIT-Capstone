@@ -22,10 +22,11 @@ from src.web.auth import (
     Role,
     UserStore,
     csrf_token,
+    users_from_env,
 )
 from src.web.context import ConsoleContext
 
-__all__ = ["ConsoleContext", "Role", "UserStore", "create_app"]
+__all__ = ["ConsoleContext", "Role", "UserStore", "create_app", "users_from_env"]
 
 
 def create_app(

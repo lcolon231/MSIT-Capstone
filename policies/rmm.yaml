@@ -8,20 +8,31 @@
 # engine blocks (docs/design/sequence-engine.md §4).
 
 rules:
+  # Every ALLOW rule is shape-locked with `args_allowlist` (issue #57): a call carrying an argument
+  # key the tool does not take stops matching its ALLOW rule and falls through to the default DENY.
   - rule_id: rmm.list_endpoints.allow
     tool: list_endpoints
     trigger: action
     enforce: allow
+    checks:
+      - predicate: args_allowlist
+        params: { allowed: [] }
 
   - rule_id: rmm.list_shares.allow
     tool: list_shares
     trigger: action
     enforce: allow
+    checks:
+      - predicate: args_allowlist
+        params: { allowed: [] }
 
   - rule_id: rmm.register_destination.allow
     tool: register_destination
     trigger: action
     enforce: allow
+    checks:
+      - predicate: args_allowlist
+        params: { allowed: [destination] }
 
   # Exporting patient records off the managed environment is irreversible disclosure (HIPAA):
   # route to a human (D5).

@@ -15,6 +15,18 @@ runs anywhere; ``--model ollama`` drives it with a live Llama-3.1-8B via Ollama.
 ``--transport inprocess`` (default) is the same-address-space scope cut. ``--transport loopback``
 runs the monitor as its OWN OS process (``src/monitor_server.py``) and speaks HTTP to it — the D11
 primary path, with genuine OS-level isolation between agent and monitor.
+
+A gated call blocks until a human resolves it, so the loopback path can put an operator in the
+loop in either of two ways:
+
+    $env:OP_PASS = "..."; python -m src.launcher --task "..." --transport loopback --console-port 5000
+    python -m src.launcher --task "..." --attach http://127.0.0.1:8787   # monitor already running
+
+``--console-port`` makes the spawned monitor also serve the operator console on its own approval
+queue. ``--attach`` skips spawning and dispatches to a monitor started separately (its bootstrap
+capability comes from ``LOOPBACK_CAPABILITY``). ``--approval-timeout`` sets how long a gated call
+waits for that human, and the HTTP client waits that long plus a margin, so a slow approval is
+never cut off client-side and misreported as an unreachable monitor.
 """
 
 from __future__ import annotations
@@ -35,6 +47,14 @@ from src.composition import build_monitor
 from src.transport.contract import ToolCallProposal
 from src.transport.inprocess import InProcessTransport
 from src.transport.loopback import LoopbackError, LoopbackTransport, wait_until_ready
+
+# Gate wait when no human can answer (the stub demo): fail closed quickly. With a console or an
+# attached monitor a person is expected to respond, so allow them minutes, not seconds.
+UNATTENDED_APPROVAL_TIMEOUT_S = 2.0
+ATTENDED_APPROVAL_TIMEOUT_S = 300.0
+# Headroom for the client over the monitor's gate wait: the response is only sent after the gate
+# resolves or times out, then the tool runs and the audit records are written.
+CLIENT_TIMEOUT_MARGIN_S = 10.0
 
 
 def demo_script() -> list[ModelResponse]:
@@ -76,16 +96,63 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--ollama-model", default="llama3.1:8b")
     parser.add_argument("--ollama-host", default="http://localhost:11434")
     parser.add_argument("--max-steps", type=int, default=25)
+    parser.add_argument(
+        "--console-port",
+        type=int,
+        default=None,
+        dest="console_port",
+        help="loopback only: the spawned monitor also serves the operator console on this port (needs OP_PASS)",
+    )
+    parser.add_argument(
+        "--attach",
+        default=None,
+        metavar="URL",
+        help="dispatch to an already-running monitor (e.g. http://127.0.0.1:8787) instead of spawning one",
+    )
+    parser.add_argument(
+        "--approval-timeout",
+        type=float,
+        default=None,
+        dest="approval_timeout",
+        help=(
+            f"seconds a gated call waits for an operator (default {ATTENDED_APPROVAL_TIMEOUT_S:g} with "
+            f"--console-port/--attach, else {UNATTENDED_APPROVAL_TIMEOUT_S:g}); with --attach, match the monitor's value"
+        ),
+    )
     args = parser.parse_args(argv)
+    if args.attach is not None and args.console_port is not None:
+        parser.error("--attach uses a monitor that is already running; start its console there")
+    if args.console_port is not None and args.transport != "loopback":
+        parser.error("--console-port requires --transport loopback")
+    if args.console_port is not None and not os.environ.get("OP_PASS"):
+        parser.error("--console-port requires the OP_PASS environment variable")
+    attended = args.attach is not None or args.console_port is not None
+    approval_timeout = args.approval_timeout
+    if approval_timeout is None:
+        approval_timeout = ATTENDED_APPROVAL_TIMEOUT_S if attended else UNATTENDED_APPROVAL_TIMEOUT_S
+    client_timeout = approval_timeout + CLIENT_TIMEOUT_MARGIN_S
 
     model = build_model(args.model, args.ollama_model, args.ollama_host)
+    if args.attach is not None:
+        transport = LoopbackTransport(
+            args.attach,
+            capability=os.environ.get("LOOPBACK_CAPABILITY") or None,
+            timeout=client_timeout,
+        )
+        _print_run(args.task, Agent(model, transport).run_traced(args.task, max_steps=args.max_steps))
+        return 0
     if args.transport == "loopback":
-        with _loopback_transport(Path(args.policy), Path(args.audit)) as transport:
+        with _loopback_transport(
+            Path(args.policy),
+            Path(args.audit),
+            approval_timeout=approval_timeout,
+            console_port=args.console_port,
+        ) as transport:
             agent = Agent(model, transport)
             _print_run(args.task, agent.run_traced(args.task, max_steps=args.max_steps))
         return 0
 
-    service = build_monitor(Path(args.policy), Path(args.audit))
+    service = build_monitor(Path(args.policy), Path(args.audit), approval_timeout_s=approval_timeout)
     agent = Agent(model, InProcessTransport(service))
     _print_run(args.task, agent.run_traced(args.task, max_steps=args.max_steps))
     return 0
@@ -99,30 +166,41 @@ def _free_port(host: str = "127.0.0.1") -> int:
 
 
 @contextlib.contextmanager
-def _loopback_transport(policy: Path, audit: Path) -> Iterator[LoopbackTransport]:
+def _loopback_transport(
+    policy: Path,
+    audit: Path,
+    approval_timeout: float = UNATTENDED_APPROVAL_TIMEOUT_S,
+    console_port: int | None = None,
+) -> Iterator[LoopbackTransport]:
     """Spawn the monitor as its OWN process, yield a client transport bound to it, and tear the
     process down afterwards. This is genuine OS-level isolation: the agent side (this process)
     never imports or holds the monitor — it only speaks HTTP to the subprocess.
 
     The bootstrap capability is minted here (trusted launcher, D14) and passed to the monitor by
-    environment variable, so only this launcher can open a session on that endpoint."""
+    environment variable, so only this launcher can open a session on that endpoint. With
+    ``console_port`` the child also serves the operator console (it inherits ``OP_PASS``)."""
     host, port = "127.0.0.1", _free_port()
     base_url = f"http://{host}:{port}"
     capability = uuid.uuid4().hex
     env = {**os.environ, "LOOPBACK_CAPABILITY": capability}
-    proc = subprocess.Popen(
-        [
-            sys.executable, "-m", "src.monitor_server",
-            "--profile", "rmm",
-            "--host", host, "--port", str(port),
-            "--policy", str(policy), "--audit", str(audit),
-        ],
-        env=env,
-    )
+    command = [
+        sys.executable, "-m", "src.monitor_server",
+        "--profile", "rmm",
+        "--host", host, "--port", str(port),
+        "--policy", str(policy), "--audit", str(audit),
+        "--approval-timeout", str(approval_timeout),
+    ]
+    if console_port is not None:
+        command += ["--console-port", str(console_port)]
+    proc = subprocess.Popen(command, env=env)
     try:
         if not wait_until_ready(base_url, timeout_s=15.0):
             raise LoopbackError(f"monitor process did not become ready at {base_url}")
-        yield LoopbackTransport(base_url, capability=capability)
+        if console_port is not None:
+            print(f"operator console: http://{host}:{console_port}", flush=True)
+        yield LoopbackTransport(
+            base_url, capability=capability, timeout=approval_timeout + CLIENT_TIMEOUT_MARGIN_S
+        )
     finally:
         proc.terminate()
         with contextlib.suppress(subprocess.TimeoutExpired):

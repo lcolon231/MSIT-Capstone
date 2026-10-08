@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from dataclasses import replace
 from typing import Any, Mapping
 
 from src.audit.events import ChainProgressEvent
@@ -115,7 +116,7 @@ class MonitorService:
 
         call = self._enrich(proposal, session_id, principal)
         state = self._sessions.state_for(session_id, principal, self._node_ranks)
-        decision = evaluate(call, self._policy, state)
+        decision = _with_gate_class(call, evaluate(call, self._policy, state))
         self._audit.append(decision_event(call, decision))
 
         if decision.verdict is Verdict.DENY:
@@ -137,13 +138,9 @@ class MonitorService:
         """Route a GATE decision to a human and block until resolved or timeout (D5). The agent
         cannot influence this: approval is keyed on a monitor-issued id resolved via the console,
         never read from the call's arguments. The original verdict stays GATE either way."""
-        gate_class = decision.gate_class or classify_gate(call)
-        if gate_class is None:
-            # A GATE with no resolvable class is a policy misconfiguration — fail closed.
-            return _result(
-                ResultStatus.DENIED,
-                Decision(Verdict.DENY, "system.ungateable", "GATE without a gate class (fail-closed)"),
-            )
+        gate_class = decision.gate_class
+        if gate_class is None:  # unreachable: _with_gate_class turns a classless GATE into a DENY
+            return _result(ResultStatus.DENIED, decision)
         pending = self._approvals.enqueue(call, gate_class)
         status = self._approvals.await_resolution(pending.approval_id, self._approval_timeout_s)
         record = self._approvals.get(pending.approval_id)
@@ -157,6 +154,9 @@ class MonitorService:
                 # Trusted identity from the console's authenticated resolve — never from the
                 # call — recorded as a digest (interface-contracts.md §4.7). None on timeout.
                 operator=operator_digest(resolver) if resolver is not None else None,
+                # When the resolution happened, not when the call was proposed: the gap is the
+                # time the call waited on a human.
+                timestamp=time.time(),
             )
         )
         if status is ApprovalStatus.APPROVED:
@@ -221,6 +221,20 @@ class MonitorService:
             call_id=CallId(uuid.uuid4().hex),
             timestamp=time.time(),
         )
+
+
+def _with_gate_class(call: ToolCall, decision: Decision) -> Decision:
+    """Resolve a GATE decision's class BEFORE it is audited, so the logged DecisionEvent says
+    which D5 class routed the call to a human. A GATE no class covers is a policy
+    misconfiguration and becomes a DENY (fail-closed), which is what gets logged."""
+    if decision.verdict is not Verdict.GATE or decision.gate_class is not None:
+        return decision
+    gate_class = classify_gate(call)
+    if gate_class is None:
+        return Decision(
+            Verdict.DENY, "system.ungateable", "GATE without a gate class (fail-closed)"
+        )
+    return replace(decision, gate_class=gate_class)
 
 
 def _chain_progress_events(

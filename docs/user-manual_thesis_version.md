@@ -80,8 +80,12 @@ Ollama is required only for live-model execution. All other procedures can be co
 Execute:
 
 ```powershell
+$env:OP_PASS = "choose-an-operator-password"
+$env:VIEW_PASS = "choose-a-viewer-password"
 python -m src.web.run          # serves http://127.0.0.1:5000
 ```
+
+The console has no default passwords. It refuses to start unless `OP_PASS` is set, and the viewer account is created only when `VIEW_PASS` is set.
 
 This command starts the console with a demonstration instance of the monitor. The demonstration environment creates an operator account and a viewer account, loads a small amount of audit history, and queues one pending approval for a 500-record `export_records` request. This seeded activity ensures that each console view contains representative data when first opened.
 
@@ -93,14 +97,14 @@ Open the following address in a web browser:
 http://127.0.0.1:5000
 ```
 
-The application redirects the user to the login page. The demonstration credentials are:
+The application redirects the user to the login page. Authenticate with the accounts configured at startup:
 
 | Role | Username | Password |
 |---|---|---|
-| operator | `operator` | `operator-pass` |
-| viewer | `viewer` | `viewer-pass` |
+| operator | `operator` (or `OP_USER`) | the value of `OP_PASS` |
+| viewer | `viewer` (or `VIEW_USER`) | the value of `VIEW_PASS` |
 
-> **These credentials must be changed for any use beyond a local demonstration.** Refer to §6.3.
+> **Strong, unshared passwords are required for any use beyond a local demonstration.** Refer to §6.3.
 
 An invalid username or password returns the user to the login page with the message *"Invalid username or password"* and an HTTP 401 response. Authentication fails closed and does not disclose which credential field was incorrect.
 
@@ -227,6 +231,9 @@ The launcher supports the following options:
 | `--policy` | `policies/rmm.yaml` | Specifies the policy enforced by the monitor. |
 | `--audit` | `results/agent-run-audit.jsonl` | Specifies the audit-log destination. |
 | `--max-steps` | `25` | Sets the maximum number of agent turns. |
+| `--console-port` | *(off)* | With `loopback`, makes the spawned monitor also serve the operator console on this port, on the approval queue that gated calls wait on. Requires `OP_PASS`. |
+| `--attach` | *(off)* | Dispatches to a monitor already running at the given URL instead of spawning one; the bootstrap capability is read from `LOOPBACK_CAPABILITY`. |
+| `--approval-timeout` | `2` (`300` with `--console-port` or `--attach`) | Sets how many seconds a gated call waits for an operator before it is denied; the client waits that long plus a margin. With `--attach`, it should match the running monitor's value. |
 
 When `--model stub` is selected, the first three operations in the canonical sequence receive **ALLOW** verdicts, while the terminal `export_records` operation receives a **DENY** verdict from the sequence engine. This execution demonstrates the principal sequence-containment result of the project.
 
@@ -259,8 +266,8 @@ The `src.web.run` module reads the following environment variables:
 | `HOST` / `PORT` | `127.0.0.1` / `5000` | Defines the network bind address and port. |
 | `MONITOR_POLICY` | `policies/rmm.yaml` | Specifies the policy displayed in `/policy`. |
 | `MONITOR_AUDIT` | `results/console-demo-audit.jsonl` | Specifies the audit log read by the console. |
-| `OP_USER` / `OP_PASS` | `operator` / `operator-pass` | Defines the operator account. |
-| `VIEW_USER` / `VIEW_PASS` | `viewer` / `viewer-pass` | Defines the viewer account. |
+| `OP_USER` / `OP_PASS` | `operator` / *(required, no default)* | Defines the operator account. The console does not start without `OP_PASS`. |
+| `VIEW_USER` / `VIEW_PASS` | `viewer` / *(unset)* | Defines the viewer account, which is created only when `VIEW_PASS` is set. |
 | `CONSOLE_SECRET` | *(random)* | Defines the Flask session-signing secret. A stable value must be configured for deployment. |
 
 The following PowerShell example assigns a stronger operator password, configures a persistent session-signing secret, and changes the console port:
