@@ -1,6 +1,6 @@
 # Compliance Mapping — AI-Agent Tool-Call Containment Monitor
 
-**Issue:** [#21](https://github.com/lcolon231/MIST-Capstone/issues/21)  
+**Issue:** [#21](https://github.com/lcolon231/MSIT-Capstone/issues/21)  
 **Baseline and sources reviewed:** 2026-09-14  
 **Owner:** the Provider's Owner / HIPAA Security Officer
 
