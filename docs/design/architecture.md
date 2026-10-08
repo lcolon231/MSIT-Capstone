@@ -255,8 +255,11 @@ yields the same decision stream and outcome over loopback as in-process.
   replay can restore the names and compare a later argument's digest without recovering plaintext.
   Also owns `hash_arguments(args) -> str`: **arguments are hashed, never logged in plaintext.**
   These hashes support deterministic comparison and reduce plaintext exposure; they are not
-  encryption and do not make the file tamper-evident. Hash chaining/signatures remain future
-  hardening rather than an implied property of JSONL append mode.
+  encryption. Tamper-evidence comes from the log envelope instead: `src/audit/chain.py` gives every
+  record a `prev_sha256` and a monotonic `seq`, and `verify_chain` (`python -m src.audit.chain`)
+  reports the first broken link (issue #56). The chain cannot detect truncation of the final
+  records from the file alone; that needs an out-of-band head seal, and signatures remain future
+  hardening.
 - **May import:** `src/monitor/types`, the neutral contract for `Verdict`, stdlib (`json`,
   `hashlib`).
 - **Must never import:** `policy`, `verdict`, `sequence`, `gate`, `service`, `tools`, `agent`,

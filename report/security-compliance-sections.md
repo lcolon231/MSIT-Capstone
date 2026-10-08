@@ -174,10 +174,11 @@ touches some specifications squarely and others only partially:
 
 | HIPAA specification | Monitor contribution | Status |
 |---|---|---|
-| **Audit controls** §164.312(b) | Append-only JSONL audit log; every tool call yields a `Decision` with a traceable `rule_id`; run fully reconstructable by replay | **Directly supports** (strengthen with hash-chaining — see GitHub #56) |
+| **Audit controls** §164.312(b) | Append-only, hash-chained JSONL audit log (`prev_sha256` + `seq`, verified by `python -m src.audit.chain`, GitHub #56); every evaluated call yields a `Decision` with a traceable `rule_id`, plus tool-execution and chain-progress events; each gate resolution records the approving operator as a SHA-256 digest | **Directly supports** (unknown-session rejections are not yet logged; end-truncation needs an out-of-band head seal) |
 | **Access control** §164.312(a)(1) — unique user ID, emergency access | Session-bound `Principal`, monitor-issued opaque token the agent cannot forge (D12.2); GATE provides a human emergency-approval path | **Directly supports** |
-| **Access control** — automatic logoff, encryption/decryption | Out of the monitor's scope; belongs to the console session layer and at-rest/in-transit encryption | **Gap — other controls** |
-| **Integrity** §164.312(c)(1) — authenticate ePHI | Argument hashing gives tamper-*evidence* of a call's parameters; append-only write discipline | **Partial** (append-only-by-convention today; #56 adds cryptographic tamper-evidence) |
+| **Access control** — automatic logoff | Console sessions end after 30 minutes idle or 8 hours absolute, enforced server-side; logout is a CSRF-protected POST, and every approve/deny POST requires the session's CSRF token | **Directly supports (console)** |
+| **Access control** — encryption/decryption | Out of the monitor's scope; belongs to at-rest and in-transit encryption | **Gap — other controls** |
+| **Integrity** §164.312(c)(1) — authenticate ePHI | Argument hashing gives tamper-*evidence* of a call's parameters; the hash-chained log (#56) makes edits or deletions of earlier records detectable | **Partial** (protects monitor records, not the clinical ePHI systems themselves) |
 | **Person/entity authentication** §164.312(d) | Operator authenticates to the console (login page, session auth) before resolving a GATE | **Directly supports (console)** |
 | **Transmission security** §164.312(e)(1) | Loopback transport terminates plaintext HTTP on `127.0.0.1` under a single-host trust assumption (D11); production would require TLS | **Partial — documented limitation** |
 
@@ -245,8 +246,8 @@ construction:
   can leave the trust boundary for a SIEM without carrying ePHI — the HIPAA-safe property the whole
   log discipline was built for (§S3, Audit controls §164.312(b)).
 - **Append-only.** The writer only ever appends (`src/audit/writer.py`), which is exactly the
-  discipline a tail-based forwarder expects and what makes the stream tamper-*evident* (hardened
-  further by hash-chaining, GitHub #56).
+  discipline a tail-based forwarder expects; each line also carries `prev_sha256` and `seq`, so the
+  stream is hash-chained and tamper-*evident* (GitHub #56).
 
 The forwarding path is therefore conventional: a file-tailing shipper (**Fluent Bit / Filebeat**, or
 `rsyslog imfile`) follows the append-only log and ships each new line to the Provider's SIEM
@@ -307,7 +308,7 @@ responsibilities this section feeds.
 logging → detection + forensics"); MITRE ATLAS **AML.T0053**, **AML.T0051**, **AML.T0051.001**; OWASP
 **Agentic AI Top 10** (Tool Misuse, Excessive Agency); **Sigma** detection-rule format. Cross-references:
 `src/audit/spike.py` and `tests/audit/test_spike.py` (shipped analyzer); GitHub #56 (audit
-tamper-evidence / hash-chaining strengthens the feed); residual-risks.md **R1** (low-and-slow evasion).
+tamper-evidence; hash-chaining, now shipped, strengthens the feed); residual-risks.md **R1** (low-and-slow evasion).
 
 ---
 

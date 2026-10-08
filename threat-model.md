@@ -3,8 +3,8 @@
 > **Final version — 2026-08-24.** Supersedes the week-one draft (2026-08-23). D9 is closed
 > (indirect prompt injection is the adversary), and the decisions the week-one draft left open —
 > D11 process placement and D12 state retention — are now confirmed, so §6 no longer carries
-> open rows. The Phase 2 monitor core is implemented and test-proven, so §7 now records which
-> goals are enforced in code today and which are designed and land in Phase 3–4 (see §10).
+> open rows. §10 records the goals enforced in code; as of the hardened console and D15 build,
+> all six are implemented and test-proven.
 >
 > Report placement: **Design and Development → Security Design Documentation**, immediately
 > before the architecture section, because every design choice that follows is derived from it.
@@ -147,11 +147,11 @@ are resolved by the confirmed D11 and D12 decisions.
 | Surface | Vector | Primary control | Status |
 |---|---|---|---|
 | Ingested content (ticket, email, log, filename) | Direct instruction injection into the agent's context | Monitor is independent of agent reasoning (SEC-06) | Implemented |
-| Tool return values | Indirect injection arriving *after* the task is underway | Same; plus a dedicated red-team scenario (T5.2) | Control implemented; scenario Phase 5 |
+| Tool return values | Indirect injection arriving *after* the task is underway | Same; plus a dedicated red-team scenario (T5.2) | Implemented; scenario `attack.indirect_injection_exfil` in the eval suite |
 | Tool arguments | Legitimate tool, harmful argument; encoding, traversal, look-alike evasion | Argument-aware anchored/canonicalizing matching (SEC-03) | Implemented, fuzz-tested |
-| Tool sequence | Individually permitted calls composing into harm | Sequence state machine (SEC-04) | Designed (D1); lands Phase 3 |
-| Approval path | Persuading or forging approval | Gate is fail-closed; agent output cannot flip GATE→ALLOW (SEC-05, SEC-06) | Verdict independence implemented; gate Phase 4 |
-| Monitor state | Resetting or smearing sequence state to escape detection | D12 retention: monitor owns session identity, state reconstructed by audit-log replay keyed on `resource_principal`, evictions logged | Design confirmed (D12); replay seeding Phase 3 |
+| Tool sequence | Individually permitted calls composing into harm | Sequence state machine (SEC-04) | Implemented, test-proven |
+| Approval path | Persuading or forging approval | Gate is fail-closed; agent output cannot flip GATE→ALLOW (SEC-05, SEC-06); only an authenticated operator, with a CSRF token, resolves it | Implemented, test-proven |
+| Monitor state | Resetting or smearing sequence state to escape detection | D12 retention: monitor owns session identity, state reconstructed by audit-log replay keyed on `resource_principal`, evictions logged | Implemented: D15 replay seeding restores a principal's chain progress in a new session; idle expiry not yet implemented, residual R7 |
 | Monitor placement | Reaching the policy object or tools directly | D11 loopback process boundary (AL-2); import-graph test is the source-level evidence | Confirmed (D11); loopback is the primary path |
 
 ---
@@ -225,18 +225,18 @@ documented, and revisited on the review cadence defined in the maintenance plan.
 
 ## 10. Implementation status of the goals
 
-The threat model is validated by code, not asserted. As of the completed Phase 2 monitor core:
+The threat model is validated by code, not asserted. As of the hardened console and D15 build:
 
 | Goal | Requirement | Status | Evidence |
 |---|---|---|---|
-| G1 Mediation | SEC-01 | Design complete; dispatch wiring Phase 3–4 | `evaluate` is the sole verdict path; mediated dispatch lands with the RMM domain (#11) |
+| G1 Mediation | SEC-01 | **Implemented, test-proven** | `MonitorService.dispatch` is the only path to a tool; malformed proposals, unknown tools and unknown sessions fail closed (`tests/integration/test_fail_closed.py`, `tests/monitor/test_service_fail_closed.py`); the import-graph test keeps the agent away from `tools`/`policy` |
 | G2 Fail-closed | SEC-02 | **Implemented, test-proven** | Default DENY on no match; unknown tool and empty policy deny all |
 | G3 Independence | SEC-06 | **Implemented, test-proven** | Pure `evaluate` reads only call/policy/state; verdict cannot be flipped by agent text |
-| G4 Sequence awareness | SEC-04 | Designed (D1); Phase 3 | `classify`/`advance` land with the kill-chain automaton (#10–#12) |
-| G5 Reviewability | SEC-05 | Designed (D5); Phase 4 | Four GATE classes route to the operator console (#13–#14) |
+| G4 Sequence awareness | SEC-04 | **Implemented, test-proven** | Kill-chain automaton denies the completing step while each call passes per-call checks (`tests/monitor/test_sequence.py`, `test_canonical_chain.py`); D15 replay carries progress across sessions (`test_d15_replay_seeding.py`) |
+| G5 Reviewability | SEC-05 | **Implemented, test-proven** | Four GATE classes block on the approval queue until an operator resolves them in the console, and time out to DENY; the resolving operator is logged as a digest (`tests/monitor/test_gate*.py`, `tests/integration/test_gate_console.py`) |
 | G6 Accountability | SEC-07 | **Implemented, test-proven** | Append-only JSONL, traceable `rule_id` per decision, hashed arguments, replay + tamper detection |
 
-Argument awareness (SEC-03) is likewise implemented and fuzz-tested. The goals still marked
-"designed" are constrained by confirmed decisions and existing interfaces, not open questions;
-their controls are drawn in Diagram #5 and specified in `docs/design/`. This section is updated
-as each subsequent phase closes.
+Argument awareness (SEC-03) is likewise implemented and fuzz-tested. All six goals are now
+enforced in code. What remains is bounded by the residual risks in §9 and
+`docs/design/residual-risks.md` (including R7), not by unbuilt controls; G6 still has one known
+gap, since an unknown-session rejection is denied without an audit record.

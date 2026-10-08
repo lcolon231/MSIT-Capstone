@@ -21,30 +21,36 @@ sequenceDiagram
         C-->>B: 401 — re-render with error
     else valid
         US-->>C: User(role)
-        C-->>B: 302 → set signed session cookie {user, role}
+        C->>C: session.clear(); new CSRF token; login_at = seen_at = now
+        C-->>B: 302 → signed cookie {user, role, login_at, seen_at, csrf}<br/>(HttpOnly, SameSite=Lax)
     end
 
     Note over U,C: 2 — Every subsequent request
     B->>C: GET /dashboard | /approvals | /policy | /sequence | /audit
-    C->>C: login_required — session has user?
-    alt no session
-        C-->>B: 302 → /login
+    C->>C: login_required — signed in and not expired?
+    Note right of C: expired = idle > 30 min<br/>or > 8 h since login;<br/>a valid request refreshes the idle timer
+    alt no session, or expired
+        C-->>B: 302 → /login (expired session cleared)
     else authenticated
         C-->>B: 200 — rendered view (read-only observation)
     end
 
-    Note over U,Q: 3 — Acting on a gate (role-gated)
-    B->>C: POST /approvals/{id}/approve
-    C->>C: requires_role(operator)
-    alt viewer
-        C-->>B: 403 — read-only role
-    else operator
+    Note over U,Q: 3 — Acting on a gate (role- and CSRF-gated)
+    B->>C: POST /approvals/{id}/approve + csrf_token
+    C->>C: requires_role(operator) + CSRF check
+    alt viewer, or CSRF token missing / invalid
+        C-->>B: 403
+    else operator + valid token
         C->>Q: resolve(approval_id, approved, operator)
         Q-->>C: PendingApproval(status)
-        Note right of Q: unblocks the monitor's<br/>await_resolution; writes<br/>ApprovalResolutionEvent
+        Note right of Q: unblocks the monitor's wait;<br/>the monitor writes<br/>ApprovalResolutionEvent<br/>(operator as SHA-256 digest)
         C-->>B: 302 → /approvals (flash result)
     end
 
-    Note over U,C: 4 — Logout
-    B->>C: GET /logout
-    C-->>B: 302 → /login (session cleared)
+    Note over U,C: 4 — Logout (POST + CSRF)
+    B->>C: POST /logout + csrf_token
+    alt valid token
+        C-->>B: 302 → /login (session cleared)
+    else token missing / invalid
+        C-->>B: 302 → /login (session left intact)
+    end
