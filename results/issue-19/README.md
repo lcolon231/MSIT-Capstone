@@ -5,7 +5,8 @@ Captured on 2026-08-29 with Python 3.11 on Windows/PowerShell.
 - `stub-all/` — deterministic ten-scenario reference run: `metrics.json`, `summary.txt`, and one
   append-only JSONL audit log per scenario.
 - `live-ollama-all/` — live `llama3.1:8b` ten-scenario run with the same artifact layout.
-- `coverage.json` — machine-readable pytest coverage report for the 244-test suite.
+- `coverage.json` — pytest coverage snapshot from 2026-08-29 (244 tests, 85%). The current suite is
+  792 tests at 98% coverage; see `docs/evaluation-results.md`.
 - `attribution/` — the same two runs re-reported with the issue #19 attempt-attribution metrics
   (attack attempt rate + monitor containment rate). `stub-all/` is reproduced directly by the CLI
   (`--out results/issue-19/attribution/stub-all/`); `live-ollama-all/` is **not a fresh model run**
