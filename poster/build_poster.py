@@ -14,6 +14,8 @@ Outputs (in poster/):
     img/*.png                        generated charts and screenshot crop (committed)
     build-report.json                font sizes, line counts, image dpi, overflow checks
 
+Requires python-pptx, matplotlib, Pillow, lxml, and segno (QR code; pip install segno).
+
 Font: Calibri in the .pptx (PowerPoint default on Windows). LibreOffice renders it with
 Carlito, which is metric-identical, so line breaks match. Charts use the same family.
 """
@@ -62,7 +64,7 @@ COL_W = (13.0, 18.0, 13.0)  # left, centre (~39% of the 46 in live width), right
 COL_X = (MARGIN, MARGIN + COL_W[0] + GUTTER, MARGIN + COL_W[0] + GUTTER + COL_W[1] + GUTTER)
 HEADER_H = 4.85  # full-bleed title band
 BODY_TOP = HEADER_H + 0.6
-FOOTER_TOP = 32.25  # references band starts here
+FOOTER_TOP = 32.1  # references band starts here
 BODY_BOTTOM = FOOTER_TOP - 0.4
 
 FONT = "Calibri"
@@ -210,6 +212,7 @@ class Report:
     images: list = field(default_factory=list)
     columns: dict = field(default_factory=dict)
     warnings: list = field(default_factory=list)
+    qr: dict = field(default_factory=dict)
 
 
 REPORT = Report()
@@ -291,10 +294,19 @@ def add_text(slide, x, y, w, paras: list[Para], h=None, anchor=MSO_ANCHOR.TOP) -
     return total
 
 
+def no_shadow(shape):
+    """Remove the theme drop shadow. An empty effectLst alone is ignored by LibreOffice, so also
+    point the shape style's effectRef at the theme's empty effect slot (idx 0)."""
+    shape.shadow.inherit = False
+    st = shape._element.find(qn("p:style"))
+    if st is not None and st.find(qn("a:effectRef")) is not None:
+        st.find(qn("a:effectRef")).set("idx", "0")
+
+
 def box(slide, x, y, w, h, fill=None, line=None, lw=2.25, shape=MSO_SHAPE.RECTANGLE, radius=None,
         dash=False, paras: list[Para] | None = None, anchor=MSO_ANCHOR.MIDDLE, pad=0.15):
     s = slide.shapes.add_shape(shape, Inches(x), Inches(y), Inches(w), Inches(h))
-    s.shadow.inherit = False
+    no_shadow(s)
     if radius is not None and len(s.adjustments):
         s.adjustments[0] = radius
     if fill:
@@ -323,6 +335,7 @@ def line(slide, x1, y1, x2, y2, color="muted", lw=3.0, arrow=True, dash=False):
     c = slide.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, Inches(x1), Inches(y1), Inches(x2), Inches(y2))
     c.line.color.rgb = rgb(color)
     c.line.width = Pt(lw)
+    no_shadow(c)
     if dash:
         c.line.dash_style = MSO_LINE_DASH_STYLE.DASH
     if arrow:
@@ -726,27 +739,75 @@ def right_column(slide, cp) -> float:
     return y + nh
 
 
+def qr_code(slide, url: str, x: float, y: float, size: float) -> dict:
+    """Draw a QR code for url as native vector squares (grouped), including the quiet zone."""
+    try:
+        import segno
+    except ImportError as exc:  # pragma: no cover - environment guard
+        raise SystemExit("The QR code needs segno:  pip install segno") from exc
+    qr = segno.make(url, error="m", boost_error=False)
+    rows = [list(r) for r in qr.matrix]
+    n, quiet = len(rows), 4
+    mod = size / (n + 2 * quiet)
+    grp = slide.shapes.add_group_shape()
+    grp.name = "QR code"
+
+    def sq(gx, gy, gw, gh, color):
+        s = grp.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(gx), Inches(gy), Inches(gw), Inches(gh))
+        no_shadow(s)
+        s.fill.solid()
+        s.fill.fore_color.rgb = RGBColor.from_string(color)
+        s.line.fill.background()
+
+    sq(x, y, size, size, "FFFFFF")
+    for r, row in enumerate(rows):
+        c = 0
+        while c < n:
+            if row[c]:
+                start = c
+                while c < n and row[c]:
+                    c += 1
+                # +0.002 in overlap hides hairline seams between adjacent rows in some renderers
+                sq(x + (quiet + start) * mod, y + (quiet + r) * mod, (c - start) * mod, mod + 0.002, "000000")
+            else:
+                c += 1
+    info = {"url": url, "version": qr.version, "error": qr.error, "modules": n,
+            "module_in": round(mod, 3), "size_in": size, "vector": True}
+    REPORT.images.append({"image": "QR code (vector shapes)", "use": url, "pixels": "n/a",
+                          "placed_in": f"{size:.2f} x {size:.2f}", "effective_dpi": "vector"})
+    return info
+
+
 def footer(slide, cp):
     box(slide, 0, FOOTER_TOP, W, H - FOOTER_TOP, fill="footer")
     box(slide, 0, FOOTER_TOP, W, 0.08, fill="blue")
     y = FOOTER_TOP + 0.35
     add_text(slide, MARGIN, y, 6, [Para(cp["references.header"], 34, "navy", bold=True, after=0)])
     refs = items(cp["references"])
+    qr_url = cp.get("footer.qr.url", "").strip()
+    qr_size = 2.35
+    qr_x, qr_y = W - MARGIN - qr_size, H - MARGIN - qr_size
     cols = [refs[:3], refs[3:]]
     cx = [MARGIN, MARGIN + 23.3]
-    cw = 22.7
-    yy = y + 0.75
-    for col, x in zip(cols, cx):
+    cw = [22.7, (qr_x - 4.6) - cx[1] if qr_url else 22.7]
+    yy = y + 0.65
+    for col, x, w in zip(cols, cx, cw):
         paras = [Para(r[0], SZ["ref"], "ink", after=6, name="reference") for r in col]
-        hh = add_text(slide, x, yy, cw, paras)
+        hh = add_text(slide, x, yy, w, paras)
         # APA hanging indent
         tb = slide.shapes[-1]
         for p in tb.text_frame.paragraphs:
             pPr = p._p.get_or_add_pPr()
             pPr.set("marL", str(Inches(0.4)))
             pPr.set("indent", str(-Inches(0.4)))
-        if yy + hh > H - 0.6:
-            REPORT.warnings.append(f"references overflow page: end at {yy + hh:.2f} in")
+        if yy + hh > H - MARGIN:
+            REPORT.warnings.append(f"references overflow the 1 in margin: end at {yy + hh:.2f} in")
+    if qr_url:
+        REPORT.qr = qr_code(slide, qr_url, qr_x, qr_y, qr_size)
+        lines = [ln.strip() for ln in cp.get("footer.qr.label", "").splitlines() if ln.strip()]
+        paras = [Para(ln, 24 if i == 0 else SZ["ref"] + 2, "navy" if i == 0 else "ink", align="r",
+                      after=4, name="footer.qr.label") for i, ln in enumerate(lines)]
+        add_text(slide, qr_x - 4.35, qr_y, 4.1, paras, h=qr_size, anchor=MSO_ANCHOR.MIDDLE)
 
 
 # --------------------------------------------------------------------------- export
@@ -819,6 +880,7 @@ def main(argv=None):
         "max_lines_per_paragraph": max(b["lines"] for b in REPORT.blocks),
         "blocks_over_4_lines": [b for b in REPORT.blocks if b["lines"] > 4],
         "line_counts": REPORT.blocks,
+        "qr_code": REPORT.qr,
         "warnings": REPORT.warnings,
     }
     OUT_REPORT.write_text(json.dumps(rep, indent=2, ensure_ascii=False), encoding="utf-8")

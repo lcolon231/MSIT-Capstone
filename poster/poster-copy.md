@@ -173,6 +173,14 @@ Not yet proven
 - The model fully attempted only **15 of 30** attack runs
 - Approvals were simulated by a mock approver
 
+## footer.qr.url
+https://github.com/lcolon231/MSIT-Capstone
+
+## footer.qr.label
+**Code, tests & results**
+github.com/lcolon231/
+MSIT-Capstone
+
 ## references.header
 References
 
