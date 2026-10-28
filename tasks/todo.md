@@ -195,7 +195,7 @@ audit log records it. This is the video demo. 📸 Capture the whole flow.
 - [x] Check the STAC repo (`amazon-science/MultiTurnAgentAttack`) for reusable RMM chains
       before writing from scratch
       done 2026-09-14: reviewed the published repo (issue #18). The release ships **no RMM
-      task pair** (only airline / api_key-calendar / bank_transfer / expenditure_accounting /
+      task pair** (only airline / api_key-calendar / funds-transfer / expenditure_accounting /
       spam_filter) and is CC BY-NC 4.0 — no drop-in reusable chain; scenarios kept as original,
       STAC-structure-informed constructions. See `research.md` "STAC repository review".
 

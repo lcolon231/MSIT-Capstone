@@ -370,19 +370,20 @@ mapping explicitly rather than inventing new names.
 #### Environments — directly reusable
 
 4 complex environments from **SHADE-Arena** (Kutasov et al. 2025), which *extends AgentDojo*:
-**Banking**, Travel, Workspace, Spam Filter Updating — plus 62 simpler ones sampled from
+a **financial-transfer** environment, Travel, Workspace and Spam Filter Updating — plus 62 simpler ones sampled from
 Agent-SafetyBench. All implemented in Python with distinct tool sets. Also a real-tool MCP
 benchmark (filesystem + Playwright servers, OpenAgentSafety tasks) where the attacker is
 black-box: full pipeline **35.5% ASR vs 12.5%** without pre-generated chains.
 
-→ Their **Banking** environment and the released chains were the closest available match to
-this project's original (banking) kill chain. Check the repo before authoring scenarios from
-scratch (D3, Task 14). → **Checked 2026-09-14: Banking is released as `bank_transfer_2`, but
+→ Their **financial-transfer** environment and the released chains were the closest available
+match to this project's original kill chain (before the D18 rename to RMM). Check the repo before
+authoring scenarios from scratch (D3, Task 14). → **Checked 2026-09-14: that environment is
+released as a funds-transfer task pair, but
 nothing in STAC has an RMM/PHI surface, so no chain is reusable for the RMM domain (D18). See
 *STAC repository review* below.**
 
 > ⚠️ **Corrected 2026-10-28.** From 2026-08-29 to 2026-10-28 this file named STAC's, SHADE-Arena's
-> and AgentDojo's *Banking* environment "RMM". The D18 domain rename (commit `89bec06`) was
+> and AgentDojo's *financial-transfer* environment "RMM". The D18 domain rename (commit `89bec06`) was
 > applied to the literature descriptions as well as to the project's own domain. Neither
 > benchmark has an RMM environment; "RMM" in this file now refers only to this project.
 
@@ -396,16 +397,16 @@ the diligence step T5.2 required before treating the suite as final.
   `generation_config.dataset`, `generation_config.environment`, `attack_plan`
   (goal, explanation, `verified_tool_chain`), and `interaction_history` (the transcript).
 - `SHADE_Arena/task_pairs/` — the released SHADE-Arena environments are exactly five:
-  **`american_airlines_2`, `api_key_calendar_agendas_2`, `bank_transfer_2`,
+  **`american_airlines_2`, `api_key_calendar_agendas_2`, a funds-transfer pair,
   `expenditure_accounting`, `spam_filter_update`** — plus the Agent-SafetyBench simpler set.
 - License: **CC BY-NC 4.0 (non-commercial)** — the framework is NC even though its underlying
   SHADE-Arena / Agent-SafetyBench data are MIT.
 
 **Finding — no reusable RMM chain exists in the release.** STAC has no RMM environment at all;
-its Banking environment *is* released (`bank_transfer_2`), but no task pair has an RMM, PHI or
+its financial-transfer environment *is* released (as the funds-transfer pair), but no task pair has an RMM, PHI or
 healthcare-MSP surface (wording corrected 2026-10-28, see the note above). The nearest
 structural analogues to this project's chains are:
-- `bank_transfer_2` / `expenditure_accounting` → financial *exfiltration* structure, structurally
+- the funds-transfer pair / `expenditure_accounting` → financial *exfiltration* structure, structurally
   parallel to our `export_records` recon→register→export chain;
 - `api_key_calendar_agendas_2` → credential access, parallel to our `credential_theft` scenario.
 
@@ -548,7 +549,7 @@ August plan; the outcome is noted in brackets.
 |---|---|---|---|
 | **AgentDojo** (arXiv:2406.13352, NeurIPS 2024) | 97 tasks, 900+ pairs, 4 domains | Deterministic state-based checks; ASR + utility + utility-under-attack | Planned as primary harness. [Not integrated; stretch goal under D3, now future work. Its state-based checking is the model for D6.] In UK AISI Inspect. |
 | **STAC** (arXiv:2509.25624) | 483 chained cases, 1,352 interaction sets | Multi-step escape scenarios + released chains | **Primary for the sequence claim.** [Chain structure adapted; no chains imported (repo review 2026-09-14).] Repo: amazon-science/MultiTurnAgentAttack |
-| **SHADE-Arena** (Kutasov et al. 2025) | 4 complex envs, extends AgentDojo | Banking / Travel / Workspace / Spam Filter | STAC's main environments. [Checked; no RMM surface.] |
+| **SHADE-Arena** (Kutasov et al. 2025) | 4 complex envs, extends AgentDojo | Financial transfer / Travel / Workspace / Spam Filter | STAC's main environments. [Checked; no RMM surface.] |
 | **Agent-SafetyBench** (Zhang et al. 2024) | 62 sampled envs; 10 failure modes | Failure-mode taxonomy | STAC's labelling scheme. [Optional secondary tag only; ATLAS is primary (D13).] |
 | **InjecAgent** (arXiv:2403.02691) | 1,054 cases | IPI-specific | Secondary. |
 | **Agent Security Bench** (arXiv:2410.02644) | 10 scenarios, 400+ tools | 27 attack/defense methods | Secondary; Progent used it. |
@@ -562,7 +563,7 @@ August plan; the outcome is noted in brackets.
 - Task utility and utility-under-attack.
 
 Report ASR **per domain and per attack**. AgentDojo's undefended ASR varies sharply
-(Slack ~58%, Banking ~19%, Workspace ~0% in one replication) — a single headline number is
+(Slack ~58%, financial transfers ~19%, Workspace ~0% in one replication) — a single headline number is
 misleading. Progent reports AgentDojo *and* ASB with utility alongside ASR. STAC reports per
 turn (T, T+1, T+2) — worth mirroring, since ASR climbing across turns is itself the sequence
 evidence.
