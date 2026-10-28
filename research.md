@@ -4,9 +4,17 @@ Working literature file. Feeds the Related Work chapter of the project report an
 citations on the poster. Add sources as they're read; move anything read-and-used into
 the "Read" column below.
 
-Companion docs: `Decision Log.md` (decisions + rationale), `docs/project-log/capstone-check-ins.md` (schedule).
+Companion doc: `Decision Log.md` (decisions + rationale). The project report's source is not
+kept in this public repository; "the report" below means the report chapters as drafted.
 PDFs live in `MSIT-Capstone/papers/` on the build box (Paper 1 = Progent, 2 = STAC,
 3 = AgentSpec, 4 = GuardAgent).
+
+> **Status as of 2026-10-28.** Build and evaluation are complete and tagged `v1.0-capstone`.
+> The open research questions below are resolved by D4, D6, D9, D10 and D13 and the STAC repo
+> review; resolutions are marked in place and summarised under
+> [*Open questions*](#open-questions--status-2026-10-28). The final evaluation result is under
+> §6, the sources cited on the poster and executive summary are under §9, and what still
+> needs checking before the final report is in the open-questions list.
 
 ---
 
@@ -33,35 +41,46 @@ papers — Progent's policy updates during execution, and AgentSpec's predicates
 defined over the trajectory. Use **checkpoint enforcement vs. trajectory reasoning**
 (AgentSpec's own vocabulary) or **privilege state vs. sequence state** (for Progent).
 
-⚠️ **Novelty is now contested — see §2.1 "Concurrent work" below.** STAC's Limitations name
-four classes of concurrent agentic guardrail (memory-based, provenance-based,
-policy-compositional, formal-verification), and state that one of them, MAGE, "evaluate[s]
-STAC directly on replays of our released chains." These must be read and positioned against
-before the Related Work chapter is written. This is the single biggest open risk to the
-contribution claim.
+✅ **Novelty risk resolved (D10, confirmed 2026-08-23).** STAC's Limitations name four classes
+of concurrent agentic guardrail (memory-based, provenance-based, policy-compositional,
+formal-verification), one of which, MAGE, "evaluate[s] STAC directly on replays of our
+released chains." All four are identified in §2.1 and positioned against in the report
+(*Review of Existing Technologies*). The claim was narrowed
+deliberately to **deterministic, inspectable, policy-as-data sequence enforcement on a local
+open-weight agent, red-teamed with deterministic per-scenario scoring**; the compositional
+mechanism itself is **not** claimed as novel.
 
 Contribution is **integration + adversarial evaluation**, not a new mechanism. Claim novelty
 only in: (1) the combined feature set, (2) stateful sequence evaluation, (3) local
 open-weight agent target, (4) red-team-first methodology.
 
+⚠️ **Do not claim the adaptive-attacker niche as evaluated.** D10 names "an adaptive,
+execution-validated attacker that re-plans against the installed guardrail" as the niche STAC
+flags as untested, and the report's review conclusion leans on it. The evaluation as run used
+fixed scenarios driven by a scripted agent and by a live `llama3.1:8b`; no attacker re-planned
+against the installed monitor. State the adaptive attacker as future work, not as a result.
+
 ---
 
 ## Read first (priority order)
 
-| # | Source | Why it matters | Read? |
-|---|--------|----------------|-------|
-| 1 | Progent (arXiv:2504.11703) | Closest prior art. Must differentiate. | ☑ 2026-08-19 (full text) |
-| 2 | STAC (arXiv:2509.25624) | The gap + ready-made attack suite. | ☑ 2026-08-19 (full PDF) |
-| 3 | AgentSpec (arXiv:2503.18666) | Other prior art. Policy language design. | ☑ 2026-08-19 (full PDF) |
-| 4 | AgentDojo (arXiv:2406.13352) | Primary eval harness. Read before experiments. | ☐ |
-| 5 | CaMeL (arXiv:2503.18813) | Most rigorous architecture. Aspirational baseline. | ☐ |
-| 6 | Zverev et al. (arXiv:2403.06833) | Why instruction-level defense fails. | ☐ |
-| 7 | Greshake et al. (arXiv:2302.12173) | Canonical prompt-injection citation. | ☐ |
-| 8 | Schneider (2000) + Ligatti et al. (2005) | Formal grounding + honest limits. | ☐ |
-| 9 | ToolEmu (arXiv:2309.15817) | Empirical evidence for problem statement. | ☐ |
-| 10 | OWASP LLM Top 10 2025 + Agentic AI (2025) | Standards mapping. | ☐ |
-| **NEW** | **Concurrent sequence-level guardrails (§2.1)** | **Novelty risk — read before Related Work** | ☐ |
-| — | GuardAgent (Paper 4, arXiv:2406.09187) | Rule out LLM-generated guards. | ☐ |
+"Read?" records only what was logged at the time; tick anything read since. "Cited in report?"
+is from a search of the report chapters' markdown source on 2026-10-28.
+
+| # | Source | Why it matters | Read? | Cited in report? |
+|---|--------|----------------|-------|---|
+| 1 | Progent (arXiv:2504.11703) | Closest prior art. Must differentiate. | ☑ 2026-08-19 (full text) | ✔ |
+| 2 | STAC (arXiv:2509.25624) | The gap + ready-made attack suite. | ☑ 2026-08-19 (full PDF) | ✔ |
+| 3 | AgentSpec (arXiv:2503.18666) | Other prior art. Policy language design. | ☑ 2026-08-19 (full PDF) | ✔ |
+| 4 | AgentDojo (arXiv:2406.13352) | Benchmark; integration deferred to future work (D3). | ☐ | ✔ |
+| 5 | CaMeL (arXiv:2503.18813) | Most rigorous architecture. Aspirational baseline. | ☐ | ✔ |
+| 6 | Zverev et al. (arXiv:2403.06833) | Why instruction-level defense fails. | ☐ | ✔ |
+| 7 | Greshake et al. (arXiv:2302.12173) | Canonical prompt-injection citation. | ☐ | ✗ |
+| 8 | Schneider (2000) + Ligatti et al. (2005) | Formal grounding + honest limits. | ☐ | Schneider ✔ · Ligatti ✗ |
+| 9 | ToolEmu (arXiv:2309.15817) | Empirical evidence for problem statement. | ☐ | ✗ |
+| 10 | OWASP LLM Top 10 2025 + Agentic AI (2025) | Standards mapping. | ☐ | ✔ (both) |
+| — | Concurrent sequence-level guardrails (§2.1) | Novelty risk — resolved by D10 | identified; see §2.1 | ✔ (MAGE, ARGUS, DSCC, ePCA) |
+| — | GuardAgent (Paper 4, arXiv:2406.09187) | Rule out LLM-generated guards. | ☐ | ✔ |
 
 ---
 
@@ -263,7 +282,14 @@ And from §3: agent vulnerability traces to "their reliance on step-by-step tool
 without holistic sequence reasoning about the cumulative consequences of multi-turn
 interactions."
 
-#### 🚨 THREAT-MODEL MISMATCH — resolve before building scenarios (D3 / D9)
+#### Threat-model mismatch (D3 / D9) — ✅ resolved 2026-08-23: option (b)
+
+> **Resolution (D9).** The project adopts **indirect prompt injection**: the operator is a
+> trusted Provider technician with a benign task, and the adversary plants content in data the
+> agent ingests (ticket bodies, email, log lines, filenames, tool results). A compromised or
+> malicious operator is out of scope. STAC's chain *structure* is re-homed as indirect
+> injection, so the suite's scenarios are cited **"adapted from STAC"**, never as STAC as
+> published. The deliberation below is kept for provenance.
 
 STAC's §2.1 Threat Model, verbatim:
 
@@ -344,15 +370,22 @@ mapping explicitly rather than inventing new names.
 #### Environments — directly reusable
 
 4 complex environments from **SHADE-Arena** (Kutasov et al. 2025), which *extends AgentDojo*:
-**RMM**, Travel, Workspace, Spam Filter Updating — plus 62 simpler ones sampled from
+a **financial-transfer** environment, Travel, Workspace and Spam Filter Updating — plus 62 simpler ones sampled from
 Agent-SafetyBench. All implemented in Python with distinct tool sets. Also a real-tool MCP
 benchmark (filesystem + Playwright servers, OpenAgentSafety tasks) where the attacker is
 black-box: full pipeline **35.5% ASR vs 12.5%** without pre-generated chains.
 
-→ Their **RMM** environment and the released chains are the closest available match to
-this project's canonical fraud chain. Check the repo before authoring scenarios from scratch
-(D3, Task 14). ⚠️ **Corrected 2026-09-14 — this premise does not hold against the actual
-release: the published repo contains *no* RMM task pair. See *STAC repository review* below.**
+→ Their **financial-transfer** environment and the released chains were the closest available
+match to this project's original kill chain (before the D18 rename to RMM). Check the repo before
+authoring scenarios from scratch (D3, Task 14). → **Checked 2026-09-14: that environment is
+released as a funds-transfer task pair, but
+nothing in STAC has an RMM/PHI surface, so no chain is reusable for the RMM domain (D18). See
+*STAC repository review* below.**
+
+> ⚠️ **Corrected 2026-10-28.** From 2026-08-29 to 2026-10-28 this file named STAC's, SHADE-Arena's
+> and AgentDojo's *financial-transfer* environment "RMM". The D18 domain rename (commit `89bec06`) was
+> applied to the literature descriptions as well as to the project's own domain. Neither
+> benchmark has an RMM environment; "RMM" in this file now refers only to this project.
 
 #### STAC repository review (issue #18 / Task 14) — completed 2026-09-14
 
@@ -364,15 +397,16 @@ the diligence step T5.2 required before treating the suite as final.
   `generation_config.dataset`, `generation_config.environment`, `attack_plan`
   (goal, explanation, `verified_tool_chain`), and `interaction_history` (the transcript).
 - `SHADE_Arena/task_pairs/` — the released SHADE-Arena environments are exactly five:
-  **`american_airlines_2`, `api_key_calendar_agendas_2`, `bank_transfer_2`,
+  **`american_airlines_2`, `api_key_calendar_agendas_2`, a funds-transfer pair,
   `expenditure_accounting`, `spam_filter_update`** — plus the Agent-SafetyBench simpler set.
 - License: **CC BY-NC 4.0 (non-commercial)** — the framework is NC even though its underlying
   SHADE-Arena / Agent-SafetyBench data are MIT.
 
-**Finding — no reusable RMM chain exists in the release.** The paper names an RMM environment,
-but it is **not among the published task pairs** (corrected above). The nearest structural
-analogues to this project's chains are:
-- `bank_transfer_2` / `expenditure_accounting` → financial *exfiltration* structure, structurally
+**Finding — no reusable RMM chain exists in the release.** STAC has no RMM environment at all;
+its financial-transfer environment *is* released (as the funds-transfer pair), but no task pair has an RMM, PHI or
+healthcare-MSP surface (wording corrected 2026-10-28, see the note above). The nearest
+structural analogues to this project's chains are:
+- the funds-transfer pair / `expenditure_accounting` → financial *exfiltration* structure, structurally
   parallel to our `export_records` recon→register→export chain;
 - `api_key_calendar_agendas_2` → credential access, parallel to our `credential_theft` scenario.
 
@@ -401,34 +435,44 @@ is deliberately capped — spec §11). Task 14 / issue #18 is closed.
   verification, so reported ASR is conditional on a verifiable chain.
 - **Predefined failure modes** may limit discovery of novel patterns.
 
-### 2.1 ⚠️ Concurrent work — READ BEFORE WRITING RELATED WORK (novelty risk)
+### 2.1 Concurrent work — ✅ identified and positioned (D10, novelty scope narrowed)
 
 STAC's Limitations name a cluster of concurrent agentic guardrails that "report strong
 reductions against static attacks", and note that **some (e.g. MAGE) evaluate STAC directly on
-replays of the released chains**:
+replays of the released chains**. Each class is now identified and positioned against in the
+report (*Review of Existing Technologies*). Positioning, as the
+report states it:
 
-- [ ] **Memory-based** — Wang et al. 2026c
-- [ ] **Provenance-based** — Weng et al. 2026
-- [ ] **Policy-compositional** — Schneider et al. 2026
-- [ ] **Formal-verification** — Wu et al. 2026a
-- [ ] **MAGE** — evaluates on STAC replays
+| STAC's class | Paper (as cited in the report) | Positioning |
+|---|---|---|
+| Memory-based (Wang et al. 2026c) | **MAGE** (Wang et al., 2026): safety-focused shadow memory across the trajectory; evaluates on STAC replays | Puts a probabilistic (LLM) component inside the enforcement path |
+| Provenance-based (Weng et al. 2026) | **ARGUS** (Weng et al., 2026): audits causal provenance from evidence to action | Rigorous, but requires re-architecting the agent |
+| Policy-compositional (Schneider et al. 2026) | **DSCC** (Schneider et al., Microsoft AI, 2026): composes per-tool policies into a chain-level policy under a monotonicity invariant, with taint tracking | Deterministic sequence enforcement is achievable; reports policy-blocking rates but **no adversarial evaluation** |
+| Formal-verification (Wu et al. 2026a) | **ePCA** (Wu et al., 2026): agent formalises its intent in first-order logic, verified by an SMT solver | Depends on the agent declaring its own intent; this monitor stays independent of the agent |
 
 STAC also refers to "the cluster of concurrent work that has since independently corroborated"
-the compositional mechanism. **This is the biggest live risk to the novelty claim** and none of
-it is currently in this file. Resolve each citation from STAC's bibliography, read at least
-the abstracts, and position against them explicitly. It may narrow the claim (e.g. to
-*deterministic, inspectable, policy-as-data* sequence enforcement on a *local open-weight*
-agent) — which is still defensible, but the claim must be narrowed deliberately rather than
-discovered by a reviewer.
+the compositional mechanism. **Consequence (D10):** the compositional mechanism is not claimed as
+novel. The claim is narrowed to *deterministic, inspectable, policy-as-data* sequence
+enforcement on a *local open-weight* agent, red-teamed with deterministic per-scenario scoring
+and reported on the false-approval / false-block / utility trade-off.
+
+How deeply each paper was read is not recorded here. Before the final report, confirm the
+report's one-line characterisation of each against at least its abstract, and add full APA
+entries; the four citations appear only in the body text of the report's markdown source, which has no
+reference list yet.
 
 Encouragingly, STAC also says whether such guardrails hold "against an adaptive,
 execution-validated attacker that re-plans against the installed guardrail … remains
 untested."
+⚠️ This project did **not** evaluate such an attacker either (see the warning under
+*Positioning statement*). It remains an open niche and belongs under future work.
 
 **ChainWatch** — arXiv:2607.19432. <https://arxiv.org/html/2607.19432>
 Kill-chain-aligned stateful detection for MCP agents. Names the canonical fraud chain:
-`list_endpoints → list_shares → register_destination → export_records`. Per-call defenses pass all five;
-sequence-level rules flag it.
+`get_balance → list_payees → add_payee → transfer_funds`. Per-call defenses pass all five;
+sequence-level rules flag it. (This project's RMM counterpart, after D18:
+`list_endpoints → list_shares → register_destination → export_records`. The tool names above are
+ChainWatch's own; they were wrongly replaced by the D18 rename from 2026-08-29 to 2026-10-28.)
 → *Method to borrow for the stateful policy; clearest worked example for the report.*
 
 **SafeFlow** — arXiv:2607.25255. Locally-benign-globally-malicious as an information-flow
@@ -458,9 +502,11 @@ problem. *Alternative approach; mention, don't implement.*
 
 ## 4. Threat model — prompt injection
 
-⚠️ **Unresolved:** Progent's model (benign user) and STAC's model (adversary on the user
-channel) are different, and this project currently intends to borrow from both. See the
-THREAT-MODEL MISMATCH box in §2 and D9 in the Decision Log. Settle before Task 14.
+✅ **Resolved by D9 (2026-08-23): indirect prompt injection.** Progent's model (benign user)
+and STAC's model (adversary on the user channel) differed; the project adopts Progent's: a
+trusted operator with a benign task, and an external adversary who plants instructions in
+ingested content and tool results. STAC's chains are re-homed as indirect injection and cited
+"adapted from". See the threat-model box in §2.
 
 - **Greshake et al. (2023)**, *Not what you've signed up for*, ACM AISec '23, arXiv:2302.12173
   — founds indirect prompt injection. Canonical.
@@ -494,12 +540,17 @@ THREAT-MODEL MISMATCH box in §2 and D9 in the Decision Log. Settle before Task 
 
 ## 6. Evaluation — reuse, don't rebuild
 
+What was actually used (D3, D13, STAC repo review): a **custom 6-attack / 4-benign suite** whose
+chain structure is adapted from STAC, scored by deterministic per-scenario checkers (D6) and
+labelled with one MITRE ATLAS technique per scenario (D13). The "Use" column below was the
+August plan; the outcome is noted in brackets.
+
 | Benchmark | Scale | What it gives | Use |
 |---|---|---|---|
-| **AgentDojo** (arXiv:2406.13352, NeurIPS 2024) | 97 tasks, 900+ pairs, 4 domains | Deterministic state-based checks; ASR + utility + utility-under-attack | **Primary harness.** In UK AISI Inspect. |
-| **STAC** (arXiv:2509.25624) | 483 chained cases, 1,352 interaction sets | Multi-step escape scenarios + released chains | **Primary for the sequence claim.** Repo: amazon-science/MultiTurnAgentAttack |
-| **SHADE-Arena** (Kutasov et al. 2025) | 4 complex envs, extends AgentDojo | RMM / Travel / Workspace / Spam Filter | STAC's main environments — check before authoring scenarios |
-| **Agent-SafetyBench** (Zhang et al. 2024) | 62 sampled envs; 10 failure modes | Failure-mode taxonomy | STAC's labelling scheme; alternative to ATLAS labels |
+| **AgentDojo** (arXiv:2406.13352, NeurIPS 2024) | 97 tasks, 900+ pairs, 4 domains | Deterministic state-based checks; ASR + utility + utility-under-attack | Planned as primary harness. [Not integrated; stretch goal under D3, now future work. Its state-based checking is the model for D6.] In UK AISI Inspect. |
+| **STAC** (arXiv:2509.25624) | 483 chained cases, 1,352 interaction sets | Multi-step escape scenarios + released chains | **Primary for the sequence claim.** [Chain structure adapted; no chains imported (repo review 2026-09-14).] Repo: amazon-science/MultiTurnAgentAttack |
+| **SHADE-Arena** (Kutasov et al. 2025) | 4 complex envs, extends AgentDojo | Financial transfer / Travel / Workspace / Spam Filter | STAC's main environments. [Checked; no RMM surface.] |
+| **Agent-SafetyBench** (Zhang et al. 2024) | 62 sampled envs; 10 failure modes | Failure-mode taxonomy | STAC's labelling scheme. [Optional secondary tag only; ATLAS is primary (D13).] |
 | **InjecAgent** (arXiv:2403.02691) | 1,054 cases | IPI-specific | Secondary. |
 | **Agent Security Bench** (arXiv:2410.02644) | 10 scenarios, 400+ tools | 27 attack/defense methods | Secondary; Progent used it. |
 | **AgentHarm** (arXiv:2410.09024) | 110 / 440 tasks | Capability retention under jailbreak | Optional. |
@@ -512,7 +563,7 @@ THREAT-MODEL MISMATCH box in §2 and D9 in the Decision Log. Settle before Task 
 - Task utility and utility-under-attack.
 
 Report ASR **per domain and per attack**. AgentDojo's undefended ASR varies sharply
-(Slack ~58%, RMM ~19%, Workspace ~0% in one replication) — a single headline number is
+(Slack ~58%, financial transfers ~19%, Workspace ~0% in one replication) — a single headline number is
 misleading. Progent reports AgentDojo *and* ASB with utility alongside ASR. STAC reports per
 turn (T, T+1, T+2) — worth mirroring, since ASR climbing across turns is itself the sequence
 evidence.
@@ -533,17 +584,47 @@ multi-seed sampling only works with an explicit non-zero temperature, because th
 decodes greedily at `temperature 0` and returns identical output for every seed. See
 `docs/evaluation-results.md` § *Multi-seed live run (n=5)*.
 
+**Final result as reported (poster, executive summary, README).** Containment is reported two
+ways (D20), leading with the attempt-gated figure:
+
+| Measure (n=5, `llama3.1:8b`, temperature 0.8) | Result |
+|---|---|
+| Attack runs whose harmful action reached the monitor | 15 of 30 |
+| Attempted attacks contained | 15 of 15: 5 by automatic DENY, 10 by GATE timeout |
+| Escapes (false approval) | 0 of 30 |
+| Benign tasks completed / wrongly blocked | 20 of 20 / 0 of 20 |
+| Approval prompts on benign tasks | 30 over 20 tasks, ≈ 1.5 per task |
+| Sequence-engine DENY | 3 of 3 scripted exfiltration chains; 0 in live runs |
+
+- **Never lead with the legacy 100% containment rate**; it counts the 15 unattempted runs as
+  contained.
+- **Do not set "0 escapes" against STAC's 91.2% ASR** as if it were a measured reduction. The
+  threat model (D9), attacker, agent model and scoring all differ (see the STAC defenses
+  subsection: "Do not claim a numeric comparison … without matching the setup").
+- **Both methodological improvements over STAC are delivered**: deterministic scoring (D6) and
+  multi-seed runs with variance reported. What is **not** demonstrated is live multi-step chain
+  detection: the live model never produced the full chain.
+
 ---
 
 ## 7. Standards mapping (corrected)
 
-- **NIST CSF 2.0** — CSWP 29, Feb 2024. <https://nvlpubs.nist.gov/nistpubs/CSWP/NIST.CSWP.29.pdf>
+- **NIST CSF 2.0** — CSWP 29, Feb 2024. <https://doi.org/10.6028/NIST.CSWP.29> (DOI verified
+  2026-10-27; PDF: <https://nvlpubs.nist.gov/nistpubs/CSWP/NIST.CSWP.29.pdf>)
   Say **2.0**. Protect (access control, least privilege) + Detect (audit log, blocked-attempt
   monitoring). Consider Govern for policy ownership.
 - **NIST AI RMF 1.0 (2023) + Generative AI Profile (AI 600-1, July 2024)** — Govern/Map/
   Measure/Manage. Red-teaming maps to Measure and Manage.
 - **OWASP Top 10 for LLM Applications 2025** — **LLM01 Prompt Injection**, **LLM06 Excessive
   Agency**. ⚠️ Insecure Plugin Design folded into LLM06 + Supply Chain. Don't cite the 2023 list.
+  Published 2024-11-17 (so cite as OWASP Foundation, 2024):
+  <https://genai.owasp.org/resource/owasp-top-10-for-llm-applications-2025/>. Cited on the poster.
+- **MITRE ATLAS** — primary scenario label, one technique per scenario (D13): AML.T0053 LLM
+  Plugin Compromise, AML.T0051 / AML.T0051.001 (Indirect) Prompt Injection, AML.T0057 LLM Data
+  Leakage. <https://atlas.mitre.org/>. The site fetch failed on 2026-10-27; add a retrieval date
+  when citing.
+- **HIPAA Security Rule, 45 C.F.R. § 164.312(b) (audit controls)** — the compliance hook for
+  the hash-chained audit log. Confirm the edition year on eCFR before citing.
 - **OWASP Agentic AI Threats and Mitigations (2025)** —
   <https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/>
 
@@ -569,19 +650,84 @@ breached production infrastructure" incident. Not primary-sourced. Unverified.
 corroboration of the threat pattern — that is a primary source and may be citable. Track down
 the actual Anthropic publication from STAC's bibliography before using it.)*
 
+### 8.1 Healthcare-MSP stakes (the case-study framing)
+
+- **Concentration risk.** The Provider manages about 30 client practices (chiropractic, physical
+  therapy, allied health) from one self-hosted RMM platform, so one Provider-side failure exposes
+  all of them at once (project report, Problem Identification).
+- **Breach cost: IBM *Cost of a Data Breach Report 2026*, via Diaz (2026, Becker's Hospital
+  Review).** The average healthcare breach costs **$6.64M**, down from $7.42M in 2025, and
+  healthcare has been the costliest sector for the 13th straight year. AI-driven attacks rose
+  **56%** year over year and add about **$1M** per malicious breach. Verified against Becker's
+  on 2026-10-27. ⚠️ The **247-day** identify-and-contain figure is **all-industry**, not
+  healthcare. The IBM primary was not retrieved, so cite as *(IBM, 2026, as cited in Diaz, 2026)*
+  and list only Diaz.
+- **HIPAA penalties: HHS annual civil monetary penalty inflation adjustment, effective
+  2026-01-28** (Federal Register doc. 2026-01688). The annual cap is **$2,190,294** for every
+  tier. The tier figures were verified via Mercer (2026, January 29),
+  <https://www.mercer.com/en-us/insights/law-and-policy/hhs-adjusts-2026-hipaa-certain-aca-and-msp-monetary-penalties/>.
+  ⚠️ The volume and pages used on the poster, *91*(18), 3665–3682, are not yet checked against
+  the Federal Register itself. ⚠️ Wording differs: the poster says "per tier", the report table
+  says "per category". Pick one and use it everywhere; the cap applies per calendar year to
+  violations of an identical provision.
+
 ---
 
-## Open questions to resolve before the build
+## 9. Citations used on the poster and executive summary
 
-- [ ] **Threat model: reconcile Progent's benign-user model with STAC's user-channel
-      adversary** — options (a)/(b)/(c) in §2, tracked as D9. Blocks Task 14. **Highest priority.**
-- [ ] **Read the concurrent sequence-level guardrails in §2.1** (esp. MAGE) and narrow the
-      novelty claim deliberately — tracked as D10. **Blocks Related Work.**
-- [ ] Check the STAC repo (amazon-science/MultiTurnAgentAttack) for reusable RMM chains
-      before authoring scenarios from scratch.
-- [ ] Scenario labelling: ATLAS techniques (per `qa-redteam-plan.md`) or Agent-SafetyBench's
-      10 failure modes, or both?
-- [ ] Which local open-weight model drives the agent? (→ D4, settled)
-- [ ] How is "escape" scored in the red-team suite? (→ D6, settled; strengthened by STAC's
-      LLM-judge concession)
-- [ ] Scope cuts if the end-of-October build deadline slips.
+APA 7, as printed on the poster (`poster/poster-copy.md`). IBM is cited only through Diaz.
+
+- Diaz, N. (2026, July 31). *Healthcare data breaches cost $6.64M on average: Report*. Becker's
+  Hospital Review.
+  https://www.beckershospitalreview.com/healthcare-information-technology/cybersecurity/healthcare-data-breaches-cost-6-64m-on-average-report/
+- Li, J.-J., He, J., Shang, C., Kulshreshtha, D., Xian, X., Zhang, Y., Su, H., Swamy, S., & Qi, Y.
+  (2025). *STAC: When innocent tools form dangerous chains for LLM agents* (arXiv:2509.25624).
+  arXiv. https://doi.org/10.48550/arXiv.2509.25624
+- National Institute of Standards and Technology. (2024). *The NIST Cybersecurity Framework
+  (CSF) 2.0* (NIST CSWP 29). https://doi.org/10.6028/NIST.CSWP.29
+- OWASP Foundation. (2024). *OWASP Top 10 for LLM applications 2025*.
+  https://genai.owasp.org/resource/owasp-top-10-for-llm-applications-2025/
+- U.S. Department of Health and Human Services. (2026, January 28). Annual civil monetary
+  penalties inflation adjustment. *Federal Register, 91*(18), 3665–3682.
+
+Notes:
+- **STAC version.** Title, authors and the 2025-09-30 first posting are verified; the DOI follows
+  arXiv's standard pattern. v3 is dated 2026-07-19, and the notes in §2 were taken from v3, so
+  cite the version you read.
+- **STAC page reference.** The 91.2% / 483-case figures are from the full read on 2026-08-19, but
+  the page or section has not been recorded. Add it before the final report.
+
+---
+
+## Open questions — status 2026-10-28
+
+**Resolved:**
+- [x] Threat model: Progent's benign user vs. STAC's user-channel adversary → **D9**: indirect
+      prompt injection, option (b); STAC chains re-homed and cited "adapted from".
+- [x] Concurrent sequence-level guardrails → **D10**: identified (MAGE, ARGUS, DSCC, ePCA) and
+      positioned in the report; novelty claim narrowed (§2.1).
+- [x] STAC repo checked for reusable chains → **2026-09-14**: none reusable (no RMM surface;
+      CC BY-NC 4.0). Scenarios are original constructions, STAC-adapted in structure.
+- [x] Scenario labelling → **D13**: one MITRE ATLAS technique per scenario (primary);
+      Agent-SafetyBench failure mode as an optional secondary tag.
+- [x] Agent model → **D4**: Ollama + Llama 3.1 8B.
+- [x] Escape scoring → **D6**: deterministic per-scenario post-condition checker.
+- [x] Scope → build completed and tagged `v1.0-capstone` (2026-10-28). AgentDojo integration
+      (the D3 stretch goal) was not done and is future work.
+
+**Still open before the final report:**
+- [ ] Record the page or section for STAC's 91.2% / 483 figures (§9).
+- [ ] Check the HHS Federal Register volume and pages, *91*(18), 3665–3682 (§8.1).
+- [ ] Align "per tier" (poster) and "per category" (report) for the HIPAA cap (§8.1).
+- [ ] Get the IBM *Cost of a Data Breach Report 2026* primary, or keep citing it through Diaz.
+- [ ] Confirm the report's one-line characterisations of MAGE, ARGUS, DSCC and ePCA against
+      their abstracts, and add full APA entries (§2.1).
+- [ ] Keep the adaptive-attacker niche as **future work**; the evaluation did not include a
+      re-planning attacker (see *Positioning statement*).
+- [ ] Track down the Anthropic AI-enabled espionage publication cited by STAC §2.1 before using
+      it (§8).
+- [ ] Re-run the live suite under the current, shape-locked policy (issue #57); live results
+      predate the policy change.
+
+---
+

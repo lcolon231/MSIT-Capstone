@@ -527,9 +527,9 @@ required D11 evidence and is not weakened or replaced.
 
 ---
 
-## D18 — Mock-tool domain renamed from banking to RMM (healthcare-MSP)
+## D18 — Mock-tool domain renamed to RMM (healthcare-MSP)
 **Decision:** The canonical mock domain and kill chain are **RMM (Remote Monitoring &
-Management)**, not banking. Tools are renamed: `get_balance → list_endpoints`,
+Management)**, replacing the original financial-transfer mock domain. Tools are renamed: `get_balance → list_endpoints`,
 `list_payees → list_shares`, `add_payee → register_destination`,
 `transfer_funds → export_records`. The canonical chain becomes
 `list_endpoints → list_shares → register_destination → export_records`, modeling
@@ -543,7 +543,7 @@ enforcement subset already covers this as a `DENY`, never a `GATE`). `files`, `n
 
 **What prompted it.** The case study subject is an MSP serving small healthcare practices, with
 HIPAA as the compliance frame throughout `report/phase1-chapters.md` (breach-cost figures,
-OWASP LLM01/LLM06 mapping, "the Provider's own automation" framing). A banking kill chain
+OWASP LLM01/LLM06 mapping, "the Provider's own automation" framing). A financial-transfer kill chain
 (`transfer_funds`) sits awkwardly inside that case study — it has no client, no HIPAA angle, and
 forces the report to explain an unrelated financial-services example inside an MSP/healthcare
 narrative. An RMM-domain chain is the Provider's actual product surface: technicians' agents
@@ -552,7 +552,7 @@ record exfiltration — is the harm the Problem Identification chapter already a
 highest-stakes one.
 
 **Alternatives weighed:**
-- *Keep the banking domain as a generic illustrative example* — least churn, but forces the
+- *Keep the original financial-transfer domain as a generic illustrative example* — least churn, but forces the
   report to justify an example domain the case study gives no organisational reason for.
   **Rejected.**
 - *Run both domains in parallel* — doubles the scenario-authoring and policy-schema surface for
