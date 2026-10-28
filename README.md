@@ -45,14 +45,11 @@ Raw metrics and audit logs: [`results/issue-19/`](results/issue-19/).
 | Deliverable | Where |
 |---|---|
 | Project poster (source) | [`poster/`](poster/) — `build_poster.py` builds it from [`poster-copy.md`](poster/poster-copy.md); the PDF is submitted on Canvas |
-| Report chapters (source) | [`report/`](report/) |
 | Threat model | [`threat-model.md`](threat-model.md) |
 | Design decisions and rationale | [`Decision Log.md`](Decision%20Log.md) |
-| Literature notes | [`research.md`](research.md) |
 | Architecture and design | [`docs/design/`](docs/design/), diagrams in [`docs/diagrams/`](docs/diagrams/) |
 | Console screenshots | [`docs/screenshots/`](docs/screenshots/) |
 | Specification and plans | [`tasks/spec.md`](tasks/spec.md), [`tasks/plan.md`](tasks/plan.md), [`tasks/qa-redteam-plan.md`](tasks/qa-redteam-plan.md) |
-| Weekly check-ins and working notes | [`docs/project-log/`](docs/project-log/) |
 
 Operations documentation: [user manual](docs/user-manual_thesis_version.md),
 [training](docs/training_thesis_version.md), [FAQ](docs/faq.md),
