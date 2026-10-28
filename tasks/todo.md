@@ -17,7 +17,7 @@ Confirmed submitted 2026-08-19; Canvas shows "Not Yet Graded". No further action
       fine in a proposal, but it **must not survive into the Project Report** — the corrected
       framing is in `research.md` under *Positioning statement*.
 - [ ] When the grade/feedback comes back, check whether the instructor approved the topic and
-      whether any scope change was requested. Log it in `capstone/Capstone Check-ins.md`.
+      whether any scope change was requested. Log it in `docs/project-log/capstone-check-ins.md`.
 - [ ] The report reframes the proposal as an **industry case study for the Provider** (MSP
       serving healthcare practices). Confirm with Dr. Alzoubi if the shift from the proposal's
       framing is significant enough to warrant a note.

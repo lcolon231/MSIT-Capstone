@@ -4,7 +4,7 @@ Working literature file. Feeds the Related Work chapter of the project report an
 citations on the poster. Add sources as they're read; move anything read-and-used into
 the "Read" column below.
 
-Companion docs: `Decision Log.md` (decisions + rationale), `capstone/Capstone Check-ins.md` (schedule).
+Companion docs: `Decision Log.md` (decisions + rationale), `docs/project-log/capstone-check-ins.md` (schedule).
 PDFs live in `MSIT-Capstone/papers/` on the build box (Paper 1 = Progent, 2 = STAC,
 3 = AgentSpec, 4 = GuardAgent).
 

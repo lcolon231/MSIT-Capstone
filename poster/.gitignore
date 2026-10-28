@@ -1,0 +1,5 @@
+# Generated outputs: rebuild with python poster/build_poster.py
+*.pptx
+*.pdf
+preview.png
+build-report.json

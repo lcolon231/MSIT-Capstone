@@ -119,7 +119,7 @@ controlling many subjects.
 
 ## 6. Check-in addendum
 
-Append to the 2026-08-23 entry in `capstone/Capstone Check-ins.md`:
+Append to the 2026-08-23 entry in `docs/project-log/capstone-check-ins.md`:
 
 > **Decisions closed the same day:** D9 (indirect injection), D10 (novelty claim scoped and
 > closed without further reading), D11 (separate process), D12 (state retention), D13 (ATLAS
